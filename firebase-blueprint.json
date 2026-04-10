@@ -1,0 +1,154 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Quiz": {
+      "title": "Quiz",
+      "description": "A generated quiz",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "topic": { "type": "string" },
+        "level": { "type": "string" },
+        "language": { "type": "string" },
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "question": { "type": "string" },
+              "options": { "type": "array", "items": { "type": "string" } },
+              "correctAnswer": { "type": "string" },
+              "explanation": { "type": "string" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "sourceMaterials": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["userId", "topic", "level", "language", "questions", "createdAt"]
+    },
+    "Session": {
+      "title": "Session",
+      "description": "A live playground session",
+      "type": "object",
+      "properties": {
+        "pin": { "type": "string" },
+        "hostId": { "type": "string" },
+        "quizId": { "type": "string" },
+        "status": { "type": "string", "enum": ["lobby", "playing", "finished"] },
+        "currentQuestionIndex": { "type": "number" },
+        "mode": { "type": "string", "enum": ["host-paced", "student-paced"] },
+        "freezeActiveUntil": { "type": "string", "format": "date-time" },
+        "freezeSenderId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["pin", "hostId", "quizId", "status", "currentQuestionIndex", "mode", "createdAt"]
+    },
+    "Participant": {
+      "title": "Participant",
+      "description": "A participant in a session",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string" },
+        "uid": { "type": "string" },
+        "nickname": { "type": "string" },
+        "score": { "type": "number" },
+        "lastAnsweredIndex": { "type": "number" },
+        "currentQuestionIndex": { "type": "number" },
+        "shuffledQuestionIndices": { "type": "array", "items": { "type": "number" } },
+        "powerUps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "count": { "type": "number" }
+            }
+          }
+        },
+        "activePowerUp": { "type": "string" },
+        "cheatingAlerts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "timestamp": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "correctAnswersCount": { "type": "number" },
+        "isFinished": { "type": "boolean" },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["sessionId", "nickname", "score", "currentQuestionIndex", "joinedAt"]
+    },
+    "Flashcard": {
+      "title": "Flashcard",
+      "description": "A study flashcard linked to a quiz",
+      "type": "object",
+      "properties": {
+        "quizId": { "type": "string" },
+        "userId": { "type": "string" },
+        "front": { "type": "string" },
+        "back": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["quizId", "userId", "front", "back", "createdAt"]
+    },
+    "UserStats": {
+      "title": "UserStats",
+      "description": "Gamification stats for a user",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "totalPoints": { "type": "number" },
+        "xp": { "type": "number" },
+        "level": { "type": "number" },
+        "badges": { "type": "array", "items": { "type": "string" } },
+        "streak": { "type": "number" },
+        "wrongAnswerBank": { "type": "array", "items": { "type": "object" } }
+      },
+      "required": ["uid", "totalPoints", "xp", "level", "badges", "streak"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "quizzes/{quizId}": {
+      "schema": "Quiz",
+      "description": "Generated quizzes"
+    },
+    "sessions/{sessionId}": {
+      "schema": "Session",
+      "description": "Live sessions"
+    },
+    "sessions/{sessionId}/participants/{participantId}": {
+      "schema": "Participant",
+      "description": "Participants in a session"
+    },
+    "flashcards/{cardId}": {
+      "schema": "Flashcard",
+      "description": "Study flashcards"
+    },
+    "userStats/{userId}": {
+      "schema": "UserStats",
+      "description": "User gamification stats"
+    }
+  }
+}

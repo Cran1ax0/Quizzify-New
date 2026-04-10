@@ -1,0 +1,8 @@
+{
+  "name": "Quizzify.ai",
+  "description": "Intelligent multi-modal assessment generator that transforms study materials into personalized quizzes using adaptive AI and search grounding.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
