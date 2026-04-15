@@ -1,27 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db, handleFirestoreError, OperationType } from './lib/firebase';
-import { collection, addDoc, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, getDoc, setDoc, onSnapshot, doc } from 'firebase/firestore';
 import { generateAll } from './lib/gemini';
-import { Quiz, QuizConfig, Flashcard } from './types';
+import { Quiz, QuizConfig, Flashcard, UserStats } from './types';
 import Layout from './components/Layout';
 import QuizForm from './components/QuizForm';
 import QuizView from './components/QuizView';
 import QuizHistory from './components/QuizHistory';
+import QuizEditor from './components/QuizEditor';
 import HostSession from './components/Playground/HostSession';
 import JoinSession from './components/Playground/JoinSession';
 import GameSession from './components/Playground/GameSession';
 import Ranking from './components/Ranking';
-import { BrainCircuit, Sparkles, LogIn, ChevronRight, BookOpen, Search, Image as ImageIcon, Users, Play, FileText, Trophy } from 'lucide-react';
+import Profile from './components/Profile';
+import Login from './components/Login';
+import { BrainCircuit, Sparkles, LogIn, ChevronRight, BookOpen, Search, Image as ImageIcon, Users, Play, FileText, Trophy, User as UserIcon, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { signInWithGoogle, getOrCreateUserStats } from './lib/firebase';
+import { signInWithGoogle, getOrCreateUserStats, logout } from './lib/firebase';
+import { translations } from './lib/translations';
 
 export default function App() {
   const [user, loading] = useAuthState(auth);
-  const [activeTab, setActiveTab] = useState<'create' | 'history' | 'playground' | 'ranking'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'history' | 'playground' | 'ranking' | 'profile'>('create');
   const [currentQuiz, setCurrentQuiz] = useState<Quiz | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userStats, setUserStats] = useState<UserStats | null>(null);
+  const [showLogin, setShowLogin] = useState(false);
+  const [editingQuiz, setEditingQuiz] = useState<Quiz | null>(null);
+  const [isCreatingManual, setIsCreatingManual] = useState(false);
+
+  const t = translations[userStats?.settings?.interfaceLanguage || 'en'] || translations.en;
 
   // Playground state
   const [playgroundMode, setPlaygroundMode] = useState<'landing' | 'host' | 'join' | 'active'>('landing');
@@ -31,7 +41,16 @@ export default function App() {
   
   useEffect(() => {
     if (user) {
+      setShowLogin(false);
       getOrCreateUserStats(user.uid, user.displayName, user.photoURL);
+      
+      const unsubscribe = onSnapshot(doc(db, 'userStats', user.uid), (snap) => {
+        if (snap.exists()) {
+          const stats = snap.data() as UserStats;
+          setUserStats(stats);
+        }
+      });
+      return () => unsubscribe();
     }
   }, [user]);
 
@@ -50,7 +69,8 @@ export default function App() {
         language: config.language,
         questions,
         createdAt: new Date().toISOString(),
-        sourceMaterials: config.additionalMaterials ? [config.additionalMaterials] : []
+        sourceMaterials: config.additionalMaterials ? [config.additionalMaterials] : [],
+        type: config.type
       };
 
       const quizDocRef = await addDoc(collection(db, 'quizzes'), quizData);
@@ -87,6 +107,35 @@ export default function App() {
     }
   };
 
+  const handleSaveManual = async (quizData: Partial<Quiz>) => {
+    if (!user) return;
+    try {
+      if (editingQuiz) {
+        // Update existing
+        const quizRef = doc(db, 'quizzes', editingQuiz.id);
+        await setDoc(quizRef, { ...quizData, updatedAt: new Date().toISOString() }, { merge: true });
+        setEditingQuiz(null);
+      } else {
+        // Create new
+        const newQuiz: Omit<Quiz, 'id'> = {
+          userId: user.uid,
+          topic: quizData.topic!,
+          level: quizData.level!,
+          language: quizData.language!,
+          questions: quizData.questions!,
+          createdAt: new Date().toISOString(),
+          type: quizData.type!
+        };
+        const docRef = await addDoc(collection(db, 'quizzes'), newQuiz);
+        setCurrentQuiz({ id: docRef.id, ...newQuiz });
+        setIsCreatingManual(false);
+      }
+    } catch (err) {
+      console.error('Save error:', err);
+      setError('Failed to save quiz');
+    }
+  };
+
   const startHosting = (sessionId: string) => {
     setActiveSessionId(sessionId);
     setIsHost(true);
@@ -112,7 +161,7 @@ export default function App() {
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
-          <p className="text-sm font-medium text-slate-500">Loading Quizzify.ai...</p>
+          <p className="text-sm font-medium text-slate-500">{t.loadingApp}</p>
         </div>
       </div>
     );
@@ -168,7 +217,7 @@ export default function App() {
                 transition={{ delay: 0.1 }}
                 className="mt-8 text-2xl font-medium leading-relaxed text-slate-600"
               >
-                Scan. Search. Study. Transform any material into a <span className="text-indigo-600 font-bold">personalized testing experience</span> with adaptive AI.
+                {t.scanSearchStudy} {t.landingTagline.split('Scan. Search. Study. ')[1] || t.landingTagline}
               </motion.p>
               
               <motion.div
@@ -177,43 +226,50 @@ export default function App() {
                 transition={{ delay: 0.2 }}
                 className="mt-12 flex flex-col items-center justify-center gap-6 sm:flex-row"
               >
-                <button
-                  onClick={signInWithGoogle}
-                  className="group relative flex items-center gap-3 overflow-hidden rounded-2xl bg-slate-900 px-10 py-5 text-xl font-black text-white shadow-2xl transition-all hover:scale-105 hover:bg-slate-800 active:scale-95"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 opacity-0 transition-opacity group-hover:opacity-10" />
-                  <LogIn size={24} />
-                  Get Started Free
-                </button>
-                
-                <button
-                  onClick={() => setActiveTab('playground')}
-                  className="flex items-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-10 py-5 text-xl font-bold text-slate-700 transition-all hover:border-indigo-300 hover:bg-indigo-50/30 active:scale-95"
-                >
-                  <Play size={24} fill="currentColor" className="text-indigo-600" />
-                  Try Playground
-                </button>
+                {showLogin ? (
+                  <Login onSuccess={() => setShowLogin(false)} />
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setShowLogin(true)}
+                      className="group relative flex items-center gap-3 overflow-hidden rounded-2xl bg-slate-900 px-10 py-5 text-xl font-black text-white shadow-2xl transition-all hover:scale-105 hover:bg-slate-800 active:scale-95"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 opacity-0 transition-opacity group-hover:opacity-10" />
+                      <LogIn size={24} />
+                      {t.getStartedFree}
+                    </button>
+                    
+                    <button
+                      onClick={() => setActiveTab('playground')}
+                      className="flex items-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-10 py-5 text-xl font-bold text-slate-700 transition-all hover:border-indigo-300 hover:bg-indigo-50/30 active:scale-95"
+                    >
+                      <Play size={24} fill="currentColor" className="text-indigo-600" />
+                      {t.tryPlayground}
+                    </button>
+                  </>
+                )}
               </motion.div>
             </div>
 
-            <div className="mt-32 grid grid-cols-1 gap-10 sm:grid-cols-3">
+            {!showLogin && (
+              <div className="mt-32 grid grid-cols-1 gap-10 sm:grid-cols-3">
               {[
                 { 
                   icon: FileText, 
-                  title: "Multi-Modal Input", 
-                  desc: "Upload images, PDFs, or PPTs for instant analysis and quiz generation.",
+                  title: t.featureMultiModalTitle, 
+                  desc: t.featureMultiModalDesc,
                   color: "bg-indigo-50 text-indigo-600"
                 },
                 { 
                   icon: Search, 
-                  title: "Search Grounding", 
-                  desc: "AI scans the web for current syllabus data and real-world facts.",
+                  title: t.featureSearchTitle, 
+                  desc: t.featureSearchDesc,
                   color: "bg-violet-50 text-violet-600"
                 },
                 { 
                   icon: Sparkles, 
-                  title: "Adaptive AI", 
-                  desc: "Tailored complexity from IGCSE to University grade assessments.",
+                  title: t.featureAdaptiveTitle, 
+                  desc: t.featureAdaptiveDesc,
                   color: "bg-fuchsia-50 text-fuchsia-600"
                 }
               ].map((feature, idx) => (
@@ -230,8 +286,9 @@ export default function App() {
                   <h3 className="text-2xl font-bold text-slate-900">{feature.title}</h3>
                   <p className="mt-4 text-lg text-slate-500 leading-relaxed">{feature.desc}</p>
                 </motion.div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -239,7 +296,7 @@ export default function App() {
   }
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab} disabled={!!currentQuiz}>
+    <Layout activeTab={activeTab} setActiveTab={setActiveTab} disabled={!!currentQuiz || !!editingQuiz || isCreatingManual}>
       <AnimatePresence mode="wait">
         {currentQuiz ? (
           <motion.div
@@ -249,6 +306,22 @@ export default function App() {
             exit={{ opacity: 0, x: -20 }}
           >
             <QuizView quiz={currentQuiz} onClose={() => setCurrentQuiz(null)} />
+          </motion.div>
+        ) : editingQuiz || isCreatingManual ? (
+          <motion.div
+            key="quiz-editor"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
+            <QuizEditor 
+              quiz={editingQuiz || undefined} 
+              onSave={handleSaveManual} 
+              onCancel={() => {
+                setEditingQuiz(null);
+                setIsCreatingManual(false);
+              }} 
+            />
           </motion.div>
         ) : activeTab === 'create' ? (
           <motion.div
@@ -262,6 +335,15 @@ export default function App() {
                 {error}
               </div>
             )}
+            <div className="mx-auto max-w-3xl mb-8 flex justify-end">
+              <button
+                onClick={() => setIsCreatingManual(true)}
+                className="flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-6 py-3 text-sm font-bold text-indigo-700 hover:bg-indigo-100 transition-all"
+              >
+                <Plus size={18} />
+                {t.createManualQuiz}
+              </button>
+            </div>
             <QuizForm onGenerate={handleGenerate} isGenerating={isGenerating} />
           </motion.div>
         ) : activeTab === 'history' ? (
@@ -271,7 +353,7 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
           >
-            <QuizHistory onSelect={setCurrentQuiz} />
+            <QuizHistory onSelect={setCurrentQuiz} onEdit={setEditingQuiz} />
           </motion.div>
         ) : activeTab === 'ranking' ? (
           <motion.div
@@ -281,6 +363,15 @@ export default function App() {
             exit={{ opacity: 0, y: -20 }}
           >
             <Ranking />
+          </motion.div>
+        ) : activeTab === 'profile' ? (
+          <motion.div
+            key="profile"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
+            <Profile onLogout={logout} />
           </motion.div>
         ) : (
           <motion.div
@@ -292,8 +383,8 @@ export default function App() {
             {playgroundMode === 'landing' && (
               <div className="mx-auto max-w-4xl py-12">
                 <div className="mb-12 text-center">
-                  <h2 className="text-4xl font-black text-slate-900">The Playground</h2>
-                  <p className="mt-4 text-xl text-slate-600">Real-time, high-energy learning for groups.</p>
+                  <h2 className="text-4xl font-black text-slate-900">{t.playgroundTitle}</h2>
+                  <p className="mt-4 text-xl text-slate-600">{t.playgroundTagline}</p>
                 </div>
 
                 <div className="grid gap-8 sm:grid-cols-2">
@@ -301,15 +392,15 @@ export default function App() {
                     <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-200">
                       <Play size={32} fill="currentColor" />
                     </div>
-                    <h3 className="text-2xl font-bold text-slate-900">Host a Session</h3>
+                    <h3 className="text-2xl font-bold text-slate-900">{t.hostSession}</h3>
                     <p className="mt-4 text-slate-600 leading-relaxed">
-                      Launch a live quiz for your students or study group. Control the pace and watch the leaderboard shift in real-time.
+                      {t.hostDesc}
                     </p>
                     <button
                       onClick={() => user ? setPlaygroundMode('host') : signInWithGoogle()}
                       className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-4 text-sm font-bold text-white shadow-lg shadow-indigo-100 transition-all hover:bg-indigo-700"
                     >
-                      Start Hosting
+                      {t.startHosting}
                       <ChevronRight size={18} />
                     </button>
                   </div>
@@ -318,15 +409,15 @@ export default function App() {
                     <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-100">
                       <Users size={32} />
                     </div>
-                    <h3 className="text-2xl font-bold text-slate-900">Join a Session</h3>
+                    <h3 className="text-2xl font-bold text-slate-900">{t.joinSession}</h3>
                     <p className="mt-4 text-slate-600 leading-relaxed">
-                      Enter a Game PIN to join a live session. Compete with others for the top spot on the leaderboard.
+                      {t.joinDesc}
                     </p>
                     <button
                       onClick={() => setPlaygroundMode('join')}
                       className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-4 text-sm font-bold text-white shadow-lg shadow-emerald-100 transition-all hover:bg-emerald-600"
                     >
-                      Join Game
+                      {t.joinGame}
                       <ChevronRight size={18} />
                     </button>
                   </div>
@@ -337,7 +428,7 @@ export default function App() {
             {playgroundMode === 'host' && (
               <div className="space-y-6">
                 <button onClick={() => setPlaygroundMode('landing')} className="text-sm font-medium text-slate-500 hover:text-slate-900">
-                  ← Back to Playground
+                  ← {t.backToPlayground}
                 </button>
                 <HostSession onStarted={startHosting} />
               </div>
@@ -346,7 +437,7 @@ export default function App() {
             {playgroundMode === 'join' && (
               <div className="space-y-6">
                 <button onClick={() => setPlaygroundMode('landing')} className="text-sm font-medium text-slate-500 hover:text-slate-900">
-                  ← Back to Playground
+                  ← {t.backToPlayground}
                 </button>
                 <JoinSession onJoined={startJoining} />
               </div>

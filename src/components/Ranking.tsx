@@ -1,11 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { db, auth } from '../lib/firebase';
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, doc } from 'firebase/firestore';
 import { UserStats } from '../types';
 import { Trophy, Medal, Star, TrendingUp } from 'lucide-react';
 import { motion } from 'motion/react';
+import { translations } from '../lib/translations';
 
 export default function Ranking() {
+  const [userStats, setUserStats] = useState<UserStats | null>(null);
+  const user = auth.currentUser;
+
+  useEffect(() => {
+    if (user) {
+      const unsubscribe = onSnapshot(doc(db, 'userStats', user.uid), (snap) => {
+        if (snap.exists()) {
+          setUserStats(snap.data() as UserStats);
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
+
+  const t = translations[userStats?.settings?.interfaceLanguage || 'en'] || translations.en;
+
   const [rankings, setRankings] = useState<UserStats[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,18 +63,18 @@ export default function Ranking() {
         >
           <Trophy size={40} />
         </motion.div>
-        <h2 className="mt-6 text-4xl font-black tracking-tight text-slate-900">Global Ranking</h2>
-        <p className="mt-2 text-slate-600">The world's top learners, ranked by level and XP.</p>
+        <h2 className="mt-6 text-4xl font-black tracking-tight text-slate-900">{t.ranking}</h2>
+        <p className="mt-2 text-slate-600">{t.rankingTagline}</p>
       </div>
 
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
         <div className="bg-slate-50 px-8 py-4 border-b border-slate-200">
           <div className="grid grid-cols-12 text-xs font-black uppercase tracking-widest text-slate-400">
-            <div className="col-span-1">Rank</div>
-            <div className="col-span-5">Learner</div>
-            <div className="col-span-2 text-center">Level</div>
+            <div className="col-span-1">{t.rank}</div>
+            <div className="col-span-5">{t.learner}</div>
+            <div className="col-span-2 text-center">{t.level}</div>
             <div className="col-span-2 text-center">XP</div>
-            <div className="col-span-2 text-right">Total Pts</div>
+            <div className="col-span-2 text-right">{t.totalPts}</div>
           </div>
         </div>
 
@@ -104,11 +121,11 @@ export default function Ranking() {
                     </p>
                     {currentUser?.uid === stat.uid && (
                       <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-600 uppercase">
-                        You
+                        {t.you}
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500">Learner</p>
+                  <p className="text-xs text-slate-500">{t.learner}</p>
                 </div>
               </div>
 
@@ -141,7 +158,7 @@ export default function Ranking() {
 
           {rankings.length === 0 && (
             <div className="py-20 text-center">
-              <p className="text-slate-400 italic">No rankings available yet. Start playing to climb the board!</p>
+              <p className="text-slate-400 italic">{t.noRankings}</p>
             </div>
           )}
         </div>

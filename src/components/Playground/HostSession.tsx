@@ -1,20 +1,37 @@
 import React, { useState } from 'react';
-import { db, createSession, handleFirestoreError, OperationType, auth } from '../../lib/firebase';
-import { collection, query, where, getDocs, orderBy, onSnapshot } from 'firebase/firestore';
-import { Quiz, Session } from '../../types';
-import { Play, Users, Settings, Loader2, AlertCircle, BookOpen, GraduationCap, Globe } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { db, createSession, auth } from '../../lib/firebase';
+import { collection, query, where, orderBy, onSnapshot, doc } from 'firebase/firestore';
+import { Quiz, UserStats } from '../../types';
+import { Play, Users, Loader2, GraduationCap } from 'lucide-react';
+import { translations } from '../../lib/translations';
 
 interface HostSessionProps {
   onStarted: (sessionId: string) => void;
 }
 
 export default function HostSession({ onStarted }: HostSessionProps) {
+  const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   const [mode, setMode] = useState<'host-paced' | 'student-paced'>('student-paced');
+  const [isTestMode, setIsTestMode] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const user = auth.currentUser;
+
+  React.useEffect(() => {
+    if (user) {
+      const unsubscribe = onSnapshot(doc(db, 'userStats', user.uid), (snap) => {
+        if (snap.exists()) {
+          setUserStats(snap.data() as UserStats);
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
+
+  const t = translations[userStats?.settings?.interfaceLanguage || 'en'] || translations.en;
 
   React.useEffect(() => {
     if (!auth.currentUser) return;
@@ -30,7 +47,7 @@ export default function HostSession({ onStarted }: HostSessionProps) {
     if (!selectedQuiz || !auth.currentUser) return;
     setIsStarting(true);
     try {
-      const sessionId = await createSession(auth.currentUser.uid, selectedQuiz.id, mode);
+      const sessionId = await createSession(auth.currentUser.uid, selectedQuiz.id, mode, isTestMode);
       onStarted(sessionId);
     } catch (err) {
       console.error('Start error:', err);
@@ -49,38 +66,41 @@ export default function HostSession({ onStarted }: HostSessionProps) {
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-8 text-center">
-        <h2 className="text-3xl font-bold text-slate-900">Host a Playground Session</h2>
-        <p className="mt-2 text-slate-600">Select a quiz and choose your game mode.</p>
+        <h2 className="text-3xl font-bold text-slate-900">{t.hostPlaygroundTitle}</h2>
+        <p className="mt-2 text-slate-600">{t.hostPlaygroundTagline}</p>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-4">
-          <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500">Select Quiz</h3>
+          <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500">{t.selectQuiz}</h3>
           <div className="grid gap-4 sm:grid-cols-2">
-            {quizzes.map(quiz => (
-              <div
-                key={quiz.id}
-                onClick={() => setSelectedQuiz(quiz)}
-                className={`cursor-pointer rounded-2xl border-2 p-4 transition-all ${
-                  selectedQuiz?.id === quiz.id ? 'border-indigo-600 bg-indigo-50/50 shadow-md' : 'border-slate-100 bg-white hover:border-indigo-200'
-                }`}
-              >
-                <h4 className="line-clamp-1 font-bold text-slate-900">{quiz.topic}</h4>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600">
-                    {quiz.level}
-                  </span>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600">
-                    {quiz.questions.length} Qs
-                  </span>
+            {quizzes.map(quiz => {
+              const translatedLevel = t[`level${quiz.level.replace('-', '')}` as keyof typeof t] || quiz.level;
+              return (
+                <div
+                  key={quiz.id}
+                  onClick={() => setSelectedQuiz(quiz)}
+                  className={`cursor-pointer rounded-2xl border-2 p-4 transition-all ${
+                    selectedQuiz?.id === quiz.id ? 'border-indigo-600 bg-indigo-50/50 shadow-md' : 'border-slate-100 bg-white hover:border-indigo-200'
+                  }`}
+                >
+                  <h4 className="line-clamp-1 font-bold text-slate-900">{quiz.topic}</h4>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                      {translatedLevel}
+                    </span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                      {quiz.questions.length} {t.questionsCount}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
         <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500">Game Settings</h3>
+          <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500">{t.gameSettings}</h3>
           
           <div className="space-y-4">
             <div className="rounded-xl border-2 border-indigo-600 bg-indigo-50/50 p-4">
@@ -89,8 +109,25 @@ export default function HostSession({ onStarted }: HostSessionProps) {
                   <Users size={18} />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Classic Mode</p>
-                  <p className="text-xs text-slate-500">Intense sprint to finish.</p>
+                  <p className="text-sm font-bold text-slate-900">{t.classicMode}</p>
+                  <p className="text-xs text-slate-500">{t.classicModeDesc}</p>
+                </div>
+              </div>
+            </div>
+
+            <div 
+              onClick={() => setIsTestMode(!isTestMode)}
+              className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${
+                isTestMode ? 'border-amber-500 bg-amber-50/50' : 'border-slate-100 bg-white hover:border-slate-200'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`rounded-lg p-2 ${isTestMode ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                  <GraduationCap size={18} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-900">{t.examMode}</p>
+                  <p className="text-xs text-slate-500">{t.testModeDesc}</p>
                 </div>
               </div>
             </div>
@@ -104,12 +141,12 @@ export default function HostSession({ onStarted }: HostSessionProps) {
             {isStarting ? (
               <>
                 <Loader2 className="animate-spin" size={20} />
-                Launching...
+                {t.launching}
               </>
             ) : (
               <>
                 <Play size={20} fill="currentColor" />
-                Launch Playground
+                {t.launchPlayground}
               </>
             )}
           </button>

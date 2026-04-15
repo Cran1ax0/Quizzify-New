@@ -1,0 +1,153 @@
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
+import { Quiz } from '../types';
+
+export const generateExamPDF = async (quiz: Quiz) => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  
+  // Helper to convert SVG to PNG
+  const svgToPng = (svg: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        // Set higher resolution for better quality
+        const scale = 2;
+        canvas.width = 800 * scale;
+        canvas.height = 400 * scale;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = 'white';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const pngUrl = canvas.toDataURL('image/png');
+          URL.revokeObjectURL(url);
+          resolve(pngUrl);
+        } else {
+          reject('Could not get canvas context');
+        }
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+  };
+
+  // Header
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bold');
+  doc.text('EXAMINATION PAPER', pageWidth / 2, 20, { align: 'center' });
+  
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Subject: ${quiz.topic}`, 20, 35);
+  doc.text(`Level: ${quiz.level}`, 20, 42);
+  doc.text(`Language: ${quiz.language}`, 20, 49);
+  const totalMarks = quiz.questions.reduce((acc, q) => acc + (q.marks || 2), 0);
+  doc.text(`Total Marks: ${totalMarks}`, pageWidth - 20, 42, { align: 'right' });
+  doc.text(`Time Allowed: ${quiz.questions.length} Minutes`, pageWidth - 20, 35, { align: 'right' });
+  
+  doc.setLineWidth(0.5);
+  doc.line(20, 55, pageWidth - 20, 55);
+  
+  // Candidate Info
+  doc.setFontSize(10);
+  doc.text('Candidate Name: ____________________________________', 20, 65);
+  doc.text('Center Number: ___________', 20, 72);
+  doc.text('Candidate Number: ___________', 80, 72);
+  doc.text('Date: ____________________', pageWidth - 20, 65, { align: 'right' });
+  
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('INSTRUCTIONS TO CANDIDATES:', 20, 85);
+  doc.setFont('helvetica', 'normal');
+  doc.text('1. Answer all questions.', 25, 92);
+  doc.text('2. Use a black or dark blue pen.', 25, 99);
+  doc.text('3. Write your answers in the spaces provided.', 25, 106);
+  doc.text('4. Do not use staples, paper clips, glue or correction fluid.', 25, 113);
+  
+  doc.line(20, 120, pageWidth - 20, 120);
+  
+  let yPos = 130;
+  
+  for (let index = 0; index < quiz.questions.length; index++) {
+    const q = quiz.questions[index];
+    // Check for page break
+    if (yPos > 240) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    const isSubPart = q.question.match(/^\d+\([a-z]\)/);
+    const questionLabel = isSubPart ? "" : `${index + 1}`;
+    
+    doc.setFont('helvetica', 'bold');
+    if (questionLabel) {
+      doc.text(questionLabel, 20, yPos);
+    }
+    
+    doc.setFont('helvetica', 'normal');
+    const splitQuestion = doc.splitTextToSize(q.question, pageWidth - 50);
+    doc.text(splitQuestion, 30, yPos);
+    
+    // Add marks indicator
+    doc.setFontSize(9);
+    doc.text(`[${q.marks || 2}]`, pageWidth - 25, yPos + (splitQuestion.length * 6), { align: 'right' });
+    doc.setFontSize(11);
+
+    yPos += (splitQuestion.length * 6) + 5;
+
+    // Add Diagram if exists
+    if (q.diagram) {
+      try {
+        const pngData = await svgToPng(q.diagram);
+        const diagramWidth = 120;
+        const diagramHeight = 60;
+        
+        if (yPos + diagramHeight > 270) {
+          doc.addPage();
+          yPos = 20;
+        }
+        
+        doc.addImage(pngData, 'PNG', (pageWidth - diagramWidth) / 2, yPos, diagramWidth, diagramHeight);
+        yPos += diagramHeight + 10;
+      } catch (e) {
+        console.error("Failed to add diagram to PDF", e);
+      }
+    }
+    
+    if (q.type === 'multiple_choice') {
+      q.options.forEach((opt, optIdx) => {
+        const label = String.fromCharCode(65 + optIdx); // A, B, C, D
+        doc.text(`(${label}) ${opt}`, 35, yPos);
+        yPos += 8;
+      });
+    } else {
+      // Writing question - add lines
+      yPos += 5;
+      doc.setDrawColor(200);
+      doc.line(30, yPos, pageWidth - 30, yPos);
+      yPos += 10;
+      doc.line(30, yPos, pageWidth - 30, yPos);
+      yPos += 10;
+      doc.line(30, yPos, pageWidth - 30, yPos);
+      yPos += 5;
+    }
+    
+    yPos += 15;
+  }
+  
+  // Footer
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+    doc.text('Generated by Quizzify.ai', 20, doc.internal.pageSize.getHeight() - 10);
+  }
+  
+  doc.save(`Exam_${quiz.topic.replace(/\s+/g, '_')}.pdf`);
+};

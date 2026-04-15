@@ -1,5 +1,16 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, signInWithPhoneNumber, ConfirmationResult, RecaptchaVerifier } from 'firebase/auth';
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signOut, 
+  signInWithPhoneNumber, 
+  ConfirmationResult, 
+  RecaptchaVerifier,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile
+} from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, onSnapshot, orderBy, deleteDoc, addDoc, updateDoc, increment, arrayUnion, getDocs } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { UserStats, Participant, Session, Quiz } from '../types';
@@ -84,11 +95,24 @@ export const getOrCreateUserStats = async (uid: string, displayName?: string | n
       level: 1,
       badges: [],
       streak: 0,
+      settings: {
+        interfaceLanguage: 'en',
+        examModeEnabled: false
+      },
       wrongAnswerBank: []
     };
     await setDoc(statsDoc, initialStats);
     return initialStats;
   }
+};
+
+export const updateUserSettings = async (uid: string, settings: Partial<UserStats['settings']>) => {
+  const statsDoc = doc(db, 'userStats', uid);
+  const updates: any = {};
+  if (settings.interfaceLanguage) updates['settings.interfaceLanguage'] = settings.interfaceLanguage;
+  if (settings.examModeEnabled !== undefined) updates['settings.examModeEnabled'] = settings.examModeEnabled;
+  
+  await updateDoc(statsDoc, updates);
 };
 
 export const updateUserStats = async (uid: string, points: number, wrongAnswer?: UserStats['wrongAnswerBank'][0]) => {
@@ -110,7 +134,7 @@ export const updateUserStats = async (uid: string, points: number, wrongAnswer?:
   }
 };
 
-export const createSession = async (hostId: string, quizId: string, mode: 'host-paced' | 'student-paced'): Promise<string> => {
+export const createSession = async (hostId: string, quizId: string, mode: 'host-paced' | 'student-paced', isTestMode: boolean = false): Promise<string> => {
   const pin = Math.floor(100000 + Math.random() * 900000).toString();
   const sessionData: Omit<Session, 'id'> = {
     pin,
@@ -119,6 +143,7 @@ export const createSession = async (hostId: string, quizId: string, mode: 'host-
     status: 'lobby',
     currentQuestionIndex: 0,
     mode,
+    isTestMode,
     createdAt: new Date().toISOString()
   };
   const docRef = await addDoc(collection(db, 'sessions'), sessionData);
@@ -210,6 +235,30 @@ export const awardSessionXp = async (sessionId: string) => {
   } catch (error) {
     console.error('Error awarding session XP:', error);
   }
+};
+
+export const signInWithEmail = async (email: string, pass: string) => {
+  const result = await signInWithEmailAndPassword(auth, email, pass);
+  await getOrCreateUserStats(result.user.uid, result.user.displayName, result.user.photoURL);
+  return result.user;
+};
+
+export const signUpWithEmail = async (email: string, pass: string, name: string) => {
+  const result = await createUserWithEmailAndPassword(auth, email, pass);
+  await updateProfile(result.user, { displayName: name });
+  
+  // Create/Update user profile
+  const userDoc = doc(db, 'users', result.user.uid);
+  await setDoc(userDoc, {
+    uid: result.user.uid,
+    email: result.user.email,
+    displayName: name,
+    photoURL: null,
+    createdAt: new Date().toISOString()
+  }, { merge: true });
+
+  await getOrCreateUserStats(result.user.uid, name, null);
+  return result.user;
 };
 
 export const signInWithGoogle = async () => {

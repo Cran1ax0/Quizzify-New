@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { db, auth, handleFirestoreError, OperationType, updateUserStats, awardSessionXp } from '../../lib/firebase';
 import { doc, onSnapshot, collection, query, where, orderBy, updateDoc, getDoc, getDocs, setDoc, increment, arrayUnion } from 'firebase/firestore';
 import { Session, Participant, Quiz, Question, CheatingAlert, UserStats } from '../../types';
-import { Users, Play, Trophy, ChevronRight, Loader2, Clock, CheckCircle2, XCircle, Info, LogOut, Shield, Timer, Search, Monitor, Star, TrendingUp } from 'lucide-react';
+import { Users, Play, Trophy, ChevronRight, Loader2, Clock, CheckCircle2, XCircle, Info, LogOut, Shield, Timer, Search, Monitor, Star, TrendingUp, GraduationCap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import ReactMarkdown from 'react-markdown';
+import { translations } from '../../lib/translations';
 
 interface GameSessionProps {
   sessionId: string;
@@ -27,6 +27,19 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
   const [isGracePeriod, setIsGracePeriod] = useState(false);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
+
+  useEffect(() => {
+    if (auth.currentUser) {
+      const unsubscribe = onSnapshot(doc(db, 'userStats', auth.currentUser.uid), (snap) => {
+        if (snap.exists()) {
+          setUserStats(snap.data() as UserStats);
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, []);
+
+  const t = translations[userStats?.settings?.interfaceLanguage || 'en'] || translations.en;
 
   useEffect(() => {
     const handleFsChange = () => {
@@ -82,15 +95,15 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
   useEffect(() => {
     let timer: NodeJS.Timeout;
     
-    if (session?.status === 'playing' && !isHost && !selectedOption && timeLeft > 0) {
+    if (session?.status === 'playing' && !isHost && !selectedOption && timeLeft > 0 && !session.isTestMode) {
       timer = setInterval(() => {
         setTimeLeft(prev => prev - 1);
       }, 1000);
-    } else if (timeLeft === 0 && !selectedOption && !isHost) {
+    } else if (timeLeft === 0 && !selectedOption && !isHost && !session?.isTestMode) {
       handleAnswer(''); // Auto-submit as wrong if time runs out
     }
     return () => clearInterval(timer);
-  }, [session?.status, timeLeft, selectedOption, isHost]);
+  }, [session?.status, timeLeft, selectedOption, isHost, session?.isTestMode]);
 
   // Fullscreen check
   const shouldEnforceFullscreen = !isHost && session?.status === 'playing';
@@ -119,14 +132,19 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
 
   // Reset state when question changes
   useEffect(() => {
-    if (session?.status === 'playing' && participant) {
+    if (session?.status === 'playing' && participant && quiz) {
       setStartTime(Date.now());
       setSelectedOption(null);
       setWritingAnswer('');
       setShowExplanation(false);
-      setTimeLeft(25);
+      
+      // Time for one question for multiple choice in playground 45 secs, for written 1 min
+      const qIndex = participant.shuffledQuestionIndices ? participant.shuffledQuestionIndices[participant.currentQuestionIndex] : participant.currentQuestionIndex;
+      const currentQuestion = quiz.questions[qIndex];
+      const initialTime = currentQuestion.type === 'writing' ? 60 : 45;
+      setTimeLeft(initialTime);
     }
-  }, [participant?.currentQuestionIndex, session?.status]);
+  }, [participant?.currentQuestionIndex, session?.status, quiz]);
 
   // Fetch user stats for finished screen
   useEffect(() => {
@@ -227,9 +245,10 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
     setShowExplanation(true);
 
     let points = 0;
-    if (isCorrect) {
+    if (isCorrect && !session.isTestMode) {
       const timeTaken = (Date.now() - startTime) / 1000;
-      points = Math.max(500, 1000 - Math.floor(timeTaken * 20)); // Adjusted speed bonus for 25s
+      const initialTime = currentQuestion.type === 'writing' ? 60 : 45;
+      points = Math.max(500, 1000 - Math.floor(timeTaken * (1000 / initialTime)));
     }
 
     const participantDoc = doc(db, 'sessions', sessionId, 'participants', participantId);
@@ -256,7 +275,7 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
       <div className="flex h-screen items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
-          <p className="text-sm font-medium text-slate-500">Connecting to Playground...</p>
+          <p className="text-sm font-medium text-slate-500">{t.connectingPlayground}</p>
         </div>
       </div>
     );
@@ -264,14 +283,27 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
 
   // Host Screen: Leaderboard Only
   if (isHost && session.status === 'playing') {
+    const sortedParticipants = [...participants].sort((a, b) => {
+      if (session.isTestMode) {
+        return (b.correctAnswersCount || 0) - (a.correctAnswersCount || 0);
+      }
+      return b.score - a.score;
+    });
+
     return (
       <div className="mx-auto max-w-6xl p-6">
         <div className="mb-12 text-center">
-          <h2 className="text-5xl font-black text-slate-900">Leaderboard</h2>
+          <h2 className="text-5xl font-black text-slate-900">{session.isTestMode ? t.testProgress : t.leaderboard}</h2>
           <p className="mt-2 text-xl text-slate-600">PIN: {session.pin} • {quiz.topic}</p>
+          {session.isTestMode && (
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1 text-sm font-bold text-amber-700">
+              <GraduationCap size={16} />
+              {t.testModeActive}
+            </div>
+          )}
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {participants.map((p, idx) => (
+          {sortedParticipants.map((p, idx) => (
             <motion.div
               key={p.id}
               layout
@@ -304,10 +336,19 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
                       </div>
                     )}
                   </div>
-                  <p className="text-sm text-slate-500">Question {p.currentQuestionIndex + 1}/{quiz.questions.length}</p>
+                  <p className="text-sm text-slate-500">{t.question} {p.currentQuestionIndex + 1}/{quiz.questions.length}</p>
                 </div>
               </div>
-              <span className="text-2xl font-black text-indigo-600">{p.score}</span>
+              <div className="text-right">
+                {session.isTestMode ? (
+                  <div>
+                    <span className="text-2xl font-black text-emerald-600">{p.correctAnswersCount || 0}</span>
+                    <p className="text-[10px] font-bold uppercase text-slate-400">{t.correct}</p>
+                  </div>
+                ) : (
+                  <span className="text-2xl font-black text-indigo-600">{p.score}</span>
+                )}
+              </div>
             </motion.div>
           ))}
         </div>
@@ -319,7 +360,7 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
             }}
             className="rounded-2xl bg-red-600 px-10 py-4 text-lg font-black text-white shadow-xl transition-all hover:bg-red-700"
           >
-            End Session
+            {t.endSession}
           </button>
         </div>
       </div>
@@ -332,15 +373,15 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
         <div className="mb-12 text-center">
           <div className="inline-flex items-center gap-2 rounded-full bg-indigo-100 px-4 py-1.5 text-sm font-bold text-indigo-600">
             <Users size={16} />
-            Lobby
+            {t.lobby}
           </div>
           <h2 className="mt-4 text-5xl font-black tracking-tight text-slate-900">PIN: {session.pin}</h2>
-          <p className="mt-2 text-slate-600">Waiting for participants to join...</p>
+          <p className="mt-2 text-slate-600">{t.waitingParticipants}</p>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <h3 className="mb-4 text-sm font-bold uppercase tracking-widest text-slate-500">Participants ({participants.length})</h3>
+            <h3 className="mb-4 text-sm font-bold uppercase tracking-widest text-slate-500">{t.participants} ({participants.length})</h3>
             <div className="flex flex-wrap gap-3">
               <AnimatePresence>
                 {participants.map((p) => (
@@ -360,16 +401,16 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
           </div>
 
           <div className="rounded-3xl bg-indigo-600 p-8 text-white shadow-xl shadow-indigo-200">
-            <h3 className="text-lg font-bold">Quiz Details</h3>
+            <h3 className="text-lg font-bold">{t.quizDetails}</h3>
             <p className="mt-1 text-indigo-100">{quiz.topic}</p>
             <div className="mt-6 space-y-4">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-indigo-200">Questions</span>
+                <span className="text-indigo-200">{t.questions}</span>
                 <span className="font-bold">{quiz.questions.length}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-indigo-200">Mode</span>
-                <span className="font-bold capitalize">Classic Mode</span>
+                <span className="text-indigo-200">{t.mode}</span>
+                <span className="font-bold capitalize">{session.isTestMode ? t.examMode : t.classicMode}</span>
               </div>
             </div>
 
@@ -380,7 +421,7 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
                 className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-4 text-sm font-bold text-indigo-600 shadow-lg transition-all hover:bg-indigo-50 disabled:opacity-50"
               >
                 <Play size={20} fill="currentColor" />
-                Start Game
+                {t.startGame}
               </button>
             )}
           </div>
@@ -390,9 +431,16 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
   }
 
   if (session.status === 'finished' || (participant && participant.isFinished)) {
+    const sortedParticipants = [...participants].sort((a, b) => {
+      if (session.isTestMode) {
+        return (b.correctAnswersCount || 0) - (a.correctAnswersCount || 0);
+      }
+      return b.score - a.score;
+    });
+
     // Beautiful Podium for Host
     if (isHost) {
-      const top3 = participants.slice(0, 3);
+      const top3 = sortedParticipants.slice(0, 3);
       return (
         <div className="flex min-h-screen flex-col items-center justify-start bg-slate-900 p-6 text-white overflow-y-auto">
           <motion.div
@@ -400,7 +448,7 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
             animate={{ scale: 1, opacity: 1 }}
             className="mb-12 mt-12 text-center"
           >
-            <h2 className="text-6xl font-black tracking-tighter">Podium</h2>
+            <h2 className="text-6xl font-black tracking-tighter">{t.podium}</h2>
             <p className="mt-2 text-xl text-slate-400">{quiz.topic}</p>
           </motion.div>
 
@@ -415,7 +463,9 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
               >
                 <div className="mb-4 text-center">
                   <p className="text-xl font-bold">{top3[1].nickname}</p>
-                  <p className="text-indigo-400 font-black">{top3[1].score} pts</p>
+                  <p className="text-indigo-400 font-black">
+                    {session.isTestMode ? `${top3[1].correctAnswersCount || 0} ${t.correct}` : `${top3[1].score} pts`}
+                  </p>
                 </div>
                 <div className="flex h-48 w-32 items-center justify-center rounded-t-3xl bg-slate-700 shadow-2xl sm:h-64 sm:w-48">
                   <span className="text-6xl font-black text-slate-500">2</span>
@@ -438,7 +488,9 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
                 >
                   <Trophy size={64} className="text-amber-400" />
                   <p className="mt-4 text-3xl font-black">{top3[0].nickname}</p>
-                  <p className="text-amber-400 text-xl font-black">{top3[0].score} pts</p>
+                  <p className="text-amber-400 text-xl font-black">
+                    {session.isTestMode ? `${top3[0].correctAnswersCount || 0} ${t.correct}` : `${top3[0].score} pts`}
+                  </p>
                 </motion.div>
                 <div className="flex h-64 w-32 items-center justify-center rounded-t-3xl bg-amber-500 shadow-2xl sm:h-80 sm:w-48">
                   <span className="text-8xl font-black text-amber-600">1</span>
@@ -456,7 +508,9 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
               >
                 <div className="mb-4 text-center">
                   <p className="text-xl font-bold">{top3[2].nickname}</p>
-                  <p className="text-indigo-400 font-black">{top3[2].score} pts</p>
+                  <p className="text-indigo-400 font-black">
+                    {session.isTestMode ? `${top3[2].correctAnswersCount || 0} ${t.correct}` : `${top3[2].score} pts`}
+                  </p>
                 </div>
                 <div className="flex h-32 w-32 items-center justify-center rounded-t-3xl bg-slate-800 shadow-2xl sm:h-48 sm:w-48">
                   <span className="text-6xl font-black text-slate-600">3</span>
@@ -473,11 +527,11 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
               transition={{ delay: 1.2 }}
               className="rounded-3xl bg-slate-800/50 p-8 backdrop-blur-xl border border-slate-700 text-center"
             >
-              <p className="text-sm font-bold uppercase tracking-widest text-slate-400">Class Average Score</p>
+              <p className="text-sm font-bold uppercase tracking-widest text-slate-400">{t.classAverageScore}</p>
               <p className="mt-2 text-5xl font-black text-indigo-400">
                 {Math.round(participants.reduce((sum, p) => sum + p.score, 0) / (participants.length || 1)).toLocaleString()}
               </p>
-              <p className="mt-2 text-xs text-slate-500">Overall performance of the group</p>
+              <p className="mt-2 text-xs text-slate-500">{t.overallPerformance}</p>
             </motion.div>
             <motion.div 
               initial={{ x: 20, opacity: 0 }}
@@ -485,11 +539,11 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
               transition={{ delay: 1.4 }}
               className="rounded-3xl bg-slate-800/50 p-8 backdrop-blur-xl border border-slate-700 text-center"
             >
-              <p className="text-sm font-bold uppercase tracking-widest text-slate-400">Class Accuracy</p>
+              <p className="text-sm font-bold uppercase tracking-widest text-slate-400">{t.classAccuracy}</p>
               <p className="mt-2 text-5xl font-black text-emerald-400">
                 {Math.round((participants.reduce((sum, p) => sum + (p.correctAnswersCount || 0), 0) / ((participants.length || 1) * quiz.questions.length)) * 100)}%
               </p>
-              <p className="mt-2 text-xs text-slate-500">Percentage of correct answers</p>
+              <p className="mt-2 text-xs text-slate-500">{t.percentageCorrect}</p>
             </motion.div>
           </div>
 
@@ -497,20 +551,20 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
           <div className="w-full max-w-5xl rounded-3xl bg-slate-800/50 p-8 backdrop-blur-xl border border-slate-700">
             <h3 className="mb-6 text-2xl font-black flex items-center gap-2">
               <Search className="text-indigo-400" />
-              Detailed Session Report
+              {t.detailedSessionReport}
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b border-slate-700 text-slate-400 text-sm uppercase tracking-widest">
-                    <th className="pb-4 font-bold">Participant</th>
-                    <th className="pb-4 font-bold">Score</th>
-                    <th className="pb-4 font-bold">Accuracy</th>
-                    <th className="pb-4 font-bold">Cheating Alerts</th>
+                    <th className="pb-4 font-bold">{t.participant}</th>
+                    <th className="pb-4 font-bold">{t.score}</th>
+                    <th className="pb-4 font-bold">{t.accuracy}</th>
+                    <th className="pb-4 font-bold">{t.cheatingAlerts}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700">
-                  {participants.map((p) => {
+                  {sortedParticipants.map((p) => {
                     const accuracy = Math.round(((p.correctAnswersCount || 0) / quiz.questions.length) * 100);
                     return (
                       <tr key={p.id} className="group hover:bg-slate-700/30 transition-colors">
@@ -537,7 +591,7 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
                               ))}
                             </div>
                           ) : (
-                            <span className="text-xs text-slate-500 italic">None detected</span>
+                            <span className="text-xs text-slate-500 italic">{t.noneDetected}</span>
                           )}
                         </td>
                       </tr>
@@ -552,7 +606,7 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
             onClick={onExit}
             className="mt-16 mb-12 rounded-2xl bg-white px-12 py-4 text-lg font-black text-slate-900 shadow-xl transition-all hover:bg-slate-100"
           >
-            Close Session
+            {t.closeSession}
           </button>
         </div>
       );
@@ -565,8 +619,8 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
             <Trophy size={48} />
           </div>
         </div>
-        <h2 className="text-4xl font-black text-slate-900">Game Over!</h2>
-        <p className="mt-2 text-slate-600">Here are the final standings for {quiz.topic}.</p>
+        <h2 className="text-4xl font-black text-slate-900">{t.gameOver}</h2>
+        <p className="mt-2 text-slate-600">{t.finalStandings} {quiz.topic}.</p>
 
         {userStats && (
           <motion.div
@@ -576,8 +630,8 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
           >
             <div className="flex items-center justify-between mb-6">
               <div className="text-left">
-                <p className="text-xs font-black uppercase tracking-widest text-indigo-200">Current Level</p>
-                <h3 className="text-3xl font-black">Level {userStats.level}</h3>
+                <p className="text-xs font-black uppercase tracking-widest text-indigo-200">{t.currentLevel}</p>
+                <h3 className="text-3xl font-black">{t.level} {userStats.level}</h3>
               </div>
               <div className="h-16 w-16 rounded-2xl bg-white/20 flex items-center justify-center">
                 <Star size={32} fill="currentColor" className="text-amber-300" />
@@ -586,7 +640,7 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
             
             <div className="space-y-2">
               <div className="flex justify-between text-sm font-bold">
-                <span>XP Progress</span>
+                <span>{t.xpProgress}</span>
                 <span>{userStats.xp} / {userStats.level * 1000} XP</span>
               </div>
               <div className="h-3 w-full rounded-full bg-black/20 overflow-hidden">
@@ -600,13 +654,13 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
 
             <div className="mt-6 flex items-center gap-2 text-indigo-100 text-sm font-medium">
               <TrendingUp size={16} />
-              <span>Keep playing to reach Level {userStats.level + 1}!</span>
+              <span>{t.keepPlayingToReach} {userStats.level + 1}!</span>
             </div>
           </motion.div>
         )}
 
         <div className="mt-12 space-y-3">
-          {participants.map((p, idx) => (
+          {sortedParticipants.map((p, idx) => (
             <motion.div
               key={p.id}
               initial={{ x: -20, opacity: 0 }}
@@ -624,7 +678,9 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
                 </span>
                 <span className="font-bold text-slate-900">{p.nickname}</span>
               </div>
-              <span className="text-xl font-black text-indigo-600">{p.score} pts</span>
+              <span className="text-xl font-black text-indigo-600">
+                {session.isTestMode ? `${p.correctAnswersCount || 0} ${t.correct}` : `${p.score} pts`}
+              </span>
             </motion.div>
           ))}
         </div>
@@ -634,7 +690,7 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
           className="mt-12 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-4 text-sm font-bold text-white shadow-lg transition-all hover:bg-slate-800"
         >
           <LogOut size={20} />
-          Exit Playground
+          {t.exitPlayground}
         </button>
       </div>
     );
@@ -654,17 +710,16 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
           <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-500/20 text-red-500">
             <Shield size={40} />
           </div>
-          <h2 className="text-3xl font-black">Fullscreen Required</h2>
+          <h2 className="text-3xl font-black">{t.fullscreenRequired}</h2>
           <p className="mt-4 text-slate-400">
-            To ensure a fair game, you must play in fullscreen mode. 
-            Questions will be hidden if you exit fullscreen.
+            {t.fullscreenDesc}
           </p>
           <button
             onClick={requestFullscreen}
             className="mt-8 flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-4 text-lg font-black shadow-xl transition-all hover:bg-indigo-700"
           >
             <Play size={20} fill="currentColor" />
-            Enter Fullscreen
+            {t.enterFullscreen}
           </button>
         </motion.div>
       </div>
@@ -694,20 +749,29 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
             {participant.currentQuestionIndex + 1}
           </div>
           <div className="hidden sm:block">
-            <h3 className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Question</h3>
-            <p className="text-sm font-bold text-white/80">{participant.currentQuestionIndex + 1} of {quiz.questions.length}</p>
+            <h3 className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">{t.question}</h3>
+            <p className="text-sm font-bold text-white/80">{participant.currentQuestionIndex + 1} {t.of} {quiz.questions.length}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-xl bg-white/5 px-4 py-2 border border-white/10">
-            <Trophy size={16} className="text-amber-400" />
-            <span className="font-black text-lg">{participant.score}</span>
-          </div>
-          <div className={`flex items-center gap-2 rounded-xl px-4 py-2 border border-white/10 ${timeLeft < 10 ? 'bg-red-500/20 text-red-400 animate-pulse' : 'bg-white/5 text-white/60'}`}>
-            <Clock size={16} />
-            <span className="font-black">{timeLeft}s</span>
-          </div>
+          {!session.isTestMode && (
+            <div className="flex items-center gap-2 rounded-xl bg-white/5 px-4 py-2 border border-white/10">
+              <Trophy size={16} className="text-amber-400" />
+              <span className="font-black text-lg">{participant.score}</span>
+            </div>
+          )}
+          {!session.isTestMode ? (
+            <div className={`flex items-center gap-2 rounded-xl px-4 py-2 border border-white/10 ${timeLeft < 10 ? 'bg-red-500/20 text-red-400 animate-pulse' : 'bg-white/5 text-white/60'}`}>
+              <Clock size={16} />
+              <span className="font-black">{timeLeft}s</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-xl bg-white/5 px-4 py-2 border border-white/10 text-white/60">
+              <Clock size={16} />
+              <span className="font-black">{t.noLimit}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -730,7 +794,7 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
                   type="text"
                   value={writingAnswer}
                   onChange={(e) => setWritingAnswer(e.target.value)}
-                  placeholder="Type your answer here..."
+                  placeholder={t.typeAnswerPlaceholder}
                   className="w-full rounded-2xl border-2 border-white/10 bg-white/5 p-6 text-xl font-black text-white placeholder:text-white/20 focus:border-indigo-500 focus:bg-white/10 focus:outline-none transition-all shadow-2xl"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && writingAnswer.trim()) {
@@ -744,7 +808,7 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
                   disabled={!writingAnswer.trim()}
                   className="w-full rounded-2xl bg-indigo-600 py-4 text-lg font-black text-white shadow-[0_6px_0_#4338ca] hover:bg-indigo-700 active:translate-y-1 active:shadow-none transition-all disabled:opacity-50"
                 >
-                  Submit Answer
+                  {t.submitAnswer}
                 </button>
               </div>
             )}
@@ -752,7 +816,7 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
 
           {/* Options Grid */}
           <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 mt-auto pb-8">
-            {currentQuestion.type === 'multiple_choice' && currentQuestion.options.map((option, idx) => {
+            {(currentQuestion.type === 'multiple_choice' || currentQuestion.type === 'true_false') && currentQuestion.options.map((option, idx) => {
               const isSelected = selectedOption === option;
               const isCorrect = option === currentQuestion.correctAnswer;
               const showResult = hasAnswered;
@@ -840,13 +904,13 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
                     {(currentQuestion.type === 'writing' 
                       ? selectedOption?.trim().toLowerCase() === currentQuestion.correctAnswer.toLowerCase()
                       : selectedOption === currentQuestion.correctAnswer)
-                    ? 'Correct!' : 'Incorrect!'}
+                    ? t.correctStatus : t.incorrect}
                   </h3>
                   <p className="text-xs font-bold text-white/40 uppercase tracking-widest">
                     {(currentQuestion.type === 'writing' 
                       ? selectedOption?.trim().toLowerCase() === currentQuestion.correctAnswer.toLowerCase()
                       : selectedOption === currentQuestion.correctAnswer)
-                    ? '+ Points earned' : `Correct answer: ${currentQuestion.correctAnswer}`}
+                    ? `+ ${t.points} earned` : `${t.correctAnswer}: ${currentQuestion.correctAnswer}`}
                   </p>
                 </div>
               </div>
@@ -857,7 +921,7 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
                 onClick={handleNextQuestion}
                 className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-8 sm:px-12 py-4 text-lg font-black text-white shadow-[0_6px_0_#4338ca] hover:bg-indigo-700 active:translate-y-1 active:shadow-none transition-all"
               >
-                {participant.currentQuestionIndex === quiz.questions.length - 1 ? 'Finish' : 'Next'}
+                {participant.currentQuestionIndex === quiz.questions.length - 1 ? t.finish : t.nextQuestion}
                 <ChevronRight size={24} />
               </motion.button>
             </div>
@@ -869,7 +933,7 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
                   <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400">
                     <Info size={20} />
                   </div>
-                  <h4 className="text-lg font-black text-white uppercase tracking-wider">Explanation</h4>
+                  <h4 className="text-lg font-black text-white uppercase tracking-wider">{t.explanation}</h4>
                 </div>
                 <div className="text-indigo-100/80 leading-relaxed prose prose-invert max-w-none">
                   <ReactMarkdown>{currentQuestion.explanation}</ReactMarkdown>

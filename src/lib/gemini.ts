@@ -19,15 +19,26 @@ export const generateAll = async (config: QuizConfig): Promise<{ questions: Ques
             QUIZ INSTRUCTIONS:
             1. Analyze any provided images or documents (PDFs/PPTs) to extract relevant facts, diagrams, or text.
             2. Generate questions that are syllabus-accurate for the ${config.level} level.
-            3. Use Google Search to verify facts and ensure the questions match current academic standards.
-            4. Exactly 20% of the questions MUST be of type "writing" (e.g., if there are 5 questions, 1 MUST be writing). The rest MUST be "multiple_choice".
-            5. For "multiple_choice" questions:
+            3. Use Google Search to find real, specific Cambridge IGCSE or A-Level past paper questions related to the topic. If possible, replicate the exact wording and data from these papers.
+            4. For "exam" type:
+               - Mimic the style of "Cambridge Testmaker" or official IGCSE/A-Level past papers.
+               - Use formal exam language (e.g., "The diagram shows...", "Calculate...", "State...", "Explain...").
+               - **DIAGRAMS & GRAPHS**: If a question involves a graph (speed-time, distance-time, supply-demand), a circuit, a geometric shape, or a simple biological diagram, you MUST generate a clean, high-quality SVG code in the "diagram" field.
+               - **BE CREATIVE**: Use SVG to create visually engaging diagrams that help explain the problem. Use colors for clarity but keep it professional.
+               - The SVG should be responsive (use viewBox, no fixed width/height), use a white/transparent background, and have clear labels in the specified language.
+               - If no diagram is needed, leave the "diagram" field empty.
+               - Split complex multi-part questions into individual questions in the JSON array, but prefix them clearly (e.g., "1(a) Calculate the deceleration...", "1(b) Calculate the total distance...").
+               - Include mark indications in the "marks" field (e.g., 1, 2, 3).
+               - Focus on structured problem solving, data interpretation, and multi-step calculations.
+            5. Exactly 20% of the questions MUST be of type "writing" (e.g., if there are 5 questions, 1 MUST be writing). The rest MUST be "multiple_choice".
+            6. For "multiple_choice" questions:
                - Must have exactly 4 options and 1 correct answer.
                - Randomize the position of the correct answer among the 4 options.
             6. For "writing" questions:
                - The answer should be a specific fact or a short word (1-3 words max).
                - The "options" array should be empty.
             7. Provide a detailed explanation for the correct answer.
+            8. Assign marks to each question (1-5 marks depending on complexity).
             
             FLASHCARD INSTRUCTIONS:
             1. Create clear, concise "Front" (Question/Term) and "Back" (Answer/Definition) pairs.
@@ -66,9 +77,11 @@ export const generateAll = async (config: QuizConfig): Promise<{ questions: Ques
                 type: { type: Type.STRING, enum: ["multiple_choice", "writing"] },
                 options: { type: Type.ARRAY, items: { type: Type.STRING } },
                 correctAnswer: { type: Type.STRING },
-                explanation: { type: Type.STRING }
+                explanation: { type: Type.STRING },
+                marks: { type: Type.NUMBER },
+                diagram: { type: Type.STRING }
               },
-              required: ["question", "type", "options", "correctAnswer", "explanation"]
+              required: ["question", "type", "options", "correctAnswer", "explanation", "marks"]
             }
           },
           flashcards: {

@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
-import { db, joinSession, handleFirestoreError, OperationType, auth } from '../../lib/firebase';
-import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
+import { db, joinSession, auth } from '../../lib/firebase';
+import { collection, query, where, getDocs, getDoc, doc, onSnapshot } from 'firebase/firestore';
 import { Hash, User, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
+import { translations } from '../../lib/translations';
+import { UserStats } from '../../types';
 
 interface JoinSessionProps {
   onJoined: (sessionId: string, participantId: string) => void;
 }
 
 export default function JoinSession({ onJoined }: JoinSessionProps) {
+  const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [pin, setPin] = useState('');
   const [nickname, setNickname] = useState('');
   const [step, setStep] = useState<'pin' | 'nickname'>('pin');
@@ -17,10 +20,25 @@ export default function JoinSession({ onJoined }: JoinSessionProps) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [questionCount, setQuestionCount] = useState(0);
 
+  const user = auth.currentUser;
+
+  React.useEffect(() => {
+    if (user) {
+      const unsubscribe = onSnapshot(doc(db, 'userStats', user.uid), (snap) => {
+        if (snap.exists()) {
+          setUserStats(snap.data() as UserStats);
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
+
+  const t = translations[userStats?.settings?.interfaceLanguage || 'en'] || translations.en;
+
   const handleVerifyPin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pin.length !== 6) {
-      setError('PIN must be 6 digits');
+      setError(t.pinError);
       return;
     }
 
@@ -33,7 +51,7 @@ export default function JoinSession({ onJoined }: JoinSessionProps) {
       const activeSession = snap.docs.find(doc => doc.data().status !== 'finished');
 
       if (!activeSession) {
-        setError('Session not found or already finished');
+        setError(t.sessionNotFound);
         setIsJoining(false);
         return;
       }
@@ -49,7 +67,7 @@ export default function JoinSession({ onJoined }: JoinSessionProps) {
       setStep('nickname');
     } catch (err) {
       console.error('PIN verify error:', err);
-      setError('Failed to verify PIN. Please try again.');
+      setError(t.failedVerifyPin);
     } finally {
       setIsJoining(false);
     }
@@ -58,7 +76,7 @@ export default function JoinSession({ onJoined }: JoinSessionProps) {
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nickname.trim()) {
-      setError('Please enter a nickname');
+      setError(t.enterNicknameError);
       return;
     }
     if (!sessionId) return;
@@ -71,7 +89,7 @@ export default function JoinSession({ onJoined }: JoinSessionProps) {
       onJoined(sessionId, participantId);
     } catch (err) {
       console.error('Join error:', err);
-      setError('Failed to join session. Please try again.');
+      setError(t.failedJoinSession);
     } finally {
       setIsJoining(false);
     }
@@ -80,9 +98,9 @@ export default function JoinSession({ onJoined }: JoinSessionProps) {
   return (
     <div className="mx-auto max-w-md">
       <div className="mb-8 text-center">
-        <h2 className="text-3xl font-bold text-slate-900">Join Playground</h2>
+        <h2 className="text-3xl font-bold text-slate-900">{t.joinPlayground}</h2>
         <p className="mt-2 text-slate-600">
-          {step === 'pin' ? 'Enter the Game PIN to start playing.' : 'Choose your nickname to enter the game.'}
+          {step === 'pin' ? t.enterPinDesc : t.chooseNicknameDesc}
         </p>
       </div>
 
@@ -98,7 +116,7 @@ export default function JoinSession({ onJoined }: JoinSessionProps) {
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
               <Hash size={16} className="text-indigo-600" />
-              Game PIN
+              {t.gamePin}
             </label>
             <input
               type="text"
@@ -114,7 +132,7 @@ export default function JoinSession({ onJoined }: JoinSessionProps) {
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
               <User size={16} className="text-indigo-600" />
-              Nickname
+              {t.nickname}
             </label>
             <input
               type="text"
@@ -122,7 +140,7 @@ export default function JoinSession({ onJoined }: JoinSessionProps) {
               autoFocus
               value={nickname}
               onChange={e => setNickname(e.target.value)}
-              placeholder="Your name"
+              placeholder={t.yourName}
               className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
             />
           </div>
@@ -136,11 +154,11 @@ export default function JoinSession({ onJoined }: JoinSessionProps) {
           {isJoining ? (
             <>
               <Loader2 className="animate-spin" size={20} />
-              {step === 'pin' ? 'Verifying...' : 'Joining...'}
+              {step === 'pin' ? t.verifying : t.joining}
             </>
           ) : (
             <>
-              {step === 'pin' ? 'Verify PIN' : 'Join Session'}
+              {step === 'pin' ? t.verifyPin : t.joinSessionBtn}
               <ArrowRight size={20} />
             </>
           )}
@@ -152,7 +170,7 @@ export default function JoinSession({ onJoined }: JoinSessionProps) {
             onClick={() => setStep('pin')}
             className="w-full text-center text-sm font-medium text-slate-500 hover:text-slate-700"
           >
-            Change PIN
+            {t.changePin}
           </button>
         )}
       </form>
