@@ -68,13 +68,6 @@ export default function JoinSession({ onJoined }: JoinSessionProps) {
 
     try {
       const participantId = await joinSession(sessionId, nickname, auth.currentUser?.uid, questionCount);
-      
-      // If logged in, sync their global stats display name to the nickname they just entered
-      if (auth.currentUser) {
-        const { getOrCreateUserStats } = await import('../../lib/firebase');
-        await getOrCreateUserStats(auth.currentUser.uid, nickname, auth.currentUser.photoURL);
-      }
-
       onJoined(sessionId, participantId);
     } catch (err) {
       console.error('Join error:', err);

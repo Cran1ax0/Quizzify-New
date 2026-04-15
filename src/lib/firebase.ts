@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, signInWithPhoneNumber, ConfirmationResult, RecaptchaVerifier } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, onSnapshot, orderBy, deleteDoc, addDoc, updateDoc, increment, arrayUnion, getDocs } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { UserStats, Participant, Session } from '../types';
+import { UserStats, Participant, Session, Quiz } from '../types';
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);

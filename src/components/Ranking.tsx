@@ -1,16 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { db, auth, getOrCreateUserStats } from '../lib/firebase';
+import { db, auth } from '../lib/firebase';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { UserStats } from '../types';
-import { Trophy, Medal, Star, TrendingUp, Edit2, Check, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { Trophy, Medal, Star, TrendingUp } from 'lucide-react';
+import { motion } from 'motion/react';
 
 export default function Ranking() {
   const [rankings, setRankings] = useState<UserStats[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingName, setEditingName] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
 
   const currentUser = auth.currentUser;
 
@@ -30,19 +27,6 @@ export default function Ranking() {
 
     return () => unsubscribe();
   }, []);
-
-  const handleUpdateName = async () => {
-    if (!currentUser || !newName.trim()) return;
-    setIsSaving(true);
-    try {
-      await getOrCreateUserStats(currentUser.uid, newName.trim(), currentUser.photoURL);
-      setEditingName(false);
-    } catch (err) {
-      console.error('Failed to update name:', err);
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -115,47 +99,13 @@ export default function Ranking() {
                 )}
                 <div>
                   <div className="flex items-center gap-2">
-                    {editingName && currentUser?.uid === stat.uid ? (
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="text"
-                          value={newName}
-                          onChange={(e) => setNewName(e.target.value)}
-                          className="rounded border border-indigo-300 px-2 py-1 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                          autoFocus
-                          onKeyDown={(e) => e.key === 'Enter' && handleUpdateName()}
-                        />
-                        <button 
-                          onClick={handleUpdateName}
-                          disabled={isSaving}
-                          className="text-emerald-500 hover:text-emerald-600"
-                        >
-                          <Check size={16} />
-                        </button>
-                        <button 
-                          onClick={() => setEditingName(false)}
-                          className="text-red-500 hover:text-red-600"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <p className="font-bold text-slate-900 truncate max-w-[150px]">
-                          {stat.displayName || `User ${stat.uid.slice(0, 6)}`}
-                        </p>
-                        {currentUser?.uid === stat.uid && (
-                          <button 
-                            onClick={() => {
-                              setNewName(stat.displayName || '');
-                              setEditingName(true);
-                            }}
-                            className="text-slate-400 hover:text-indigo-600 transition-colors"
-                          >
-                            <Edit2 size={14} />
-                          </button>
-                        )}
-                      </>
+                    <p className="font-bold text-slate-900 truncate max-w-[150px]">
+                      {stat.displayName || `User ${stat.uid.slice(0, 6)}`}
+                    </p>
+                    {currentUser?.uid === stat.uid && (
+                      <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-600 uppercase">
+                        You
+                      </span>
                     )}
                   </div>
                   <p className="text-xs text-slate-500">Learner</p>
