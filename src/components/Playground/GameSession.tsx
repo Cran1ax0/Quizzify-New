@@ -4,6 +4,7 @@ import { doc, onSnapshot, collection, query, where, orderBy, updateDoc, getDoc, 
 import { Session, Participant, Quiz, Question, CheatingAlert, UserStats } from '../../types';
 import { Users, Play, Trophy, ChevronRight, Loader2, Clock, CheckCircle2, XCircle, Info, LogOut, Shield, Timer, Search, Monitor, Star, TrendingUp, GraduationCap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import ReactMarkdown from 'react-markdown';
 import { translations } from '../../lib/translations';
 
 interface GameSessionProps {

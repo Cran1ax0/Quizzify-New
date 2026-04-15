@@ -288,7 +288,7 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
               }`}
             >
               <BookOpen size={16} />
-              Quiz
+              {t.quiz}
             </button>
             <button
               onClick={() => setViewMode('flashcards')}
@@ -297,7 +297,7 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
               }`}
             >
               <Layers size={16} />
-              Flashcards
+              {t.flashcards}
             </button>
           </div>
         )}
@@ -325,10 +325,10 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
 
             <div className="mb-4 flex items-center justify-between text-sm font-medium text-slate-500">
               <div className="flex items-center gap-4">
-                <span>Question {currentQuestionIdx + 1} of {quiz.questions.length}</span>
+                <span>{t.question} {currentQuestionIdx + 1} {t.of} {quiz.questions.length}</span>
                 {currentQuestion.marks && (
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    {currentQuestion.marks} {currentQuestion.marks === 1 ? 'Mark' : 'Marks'}
+                    {currentQuestion.marks} {currentQuestion.marks === 1 ? t.mark : t.marksLabel}
                   </span>
                 )}
               </div>
@@ -403,7 +403,7 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
                       value={writingAnswer}
                       onChange={(e) => setWritingAnswer(e.target.value)}
                       disabled={showExplanation && !isExam}
-                      placeholder="Type your answer here..."
+                      placeholder={t.typeAnswerPlaceholder}
                       className="w-full rounded-xl border-2 border-slate-100 bg-slate-50 p-4 text-sm font-medium focus:border-indigo-500 focus:bg-white focus:outline-none disabled:opacity-50"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && writingAnswer.trim() && (!showExplanation || isExam)) {
@@ -417,7 +417,7 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
                         disabled={!writingAnswer.trim()}
                         className="w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700 disabled:opacity-50"
                       >
-                        Submit Answer
+                        {t.submitAnswer}
                       </button>
                     )}
                     {showExplanation && !isExam && (
@@ -487,7 +487,7 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
       ) : (
         <div className="space-y-8">
           <div className="flex items-center justify-between text-sm font-medium text-slate-500">
-            <span>Card {currentCardIdx + 1} of {flashcards.length}</span>
+            <span>{t.card} {currentCardIdx + 1} {t.of} {flashcards.length}</span>
             <button 
               onClick={() => {
                 setCurrentCardIdx(0);
@@ -496,7 +496,7 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
               className="flex items-center gap-2 text-indigo-600 hover:text-indigo-700"
             >
               <RotateCcw size={14} />
-              Reset
+              {t.reset}
             </button>
           </div>
 

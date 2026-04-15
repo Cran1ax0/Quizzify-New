@@ -217,7 +217,7 @@ export default function App() {
                 transition={{ delay: 0.1 }}
                 className="mt-8 text-2xl font-medium leading-relaxed text-slate-600"
               >
-                {t.scanSearchStudy} {t.landingTagline.split('Scan. Search. Study. ')[1] || t.landingTagline}
+                <span className="font-black text-slate-900">{t.landingTaglineMain}</span> {t.landingTaglineSub}
               </motion.p>
               
               <motion.div
