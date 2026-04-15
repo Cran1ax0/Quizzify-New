@@ -28,10 +28,11 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [showLogin, setShowLogin] = useState(false);
+  const [interfaceLang, setInterfaceLang] = useState<'en' | 'uz' | 'ru'>('en');
   const [editingQuiz, setEditingQuiz] = useState<Quiz | null>(null);
   const [isCreatingManual, setIsCreatingManual] = useState(false);
 
-  const t = translations[userStats?.settings?.interfaceLanguage || 'en'] || translations.en;
+  const t = translations[userStats?.settings?.interfaceLanguage || interfaceLang] || translations.en;
 
   // Playground state
   const [playgroundMode, setPlaygroundMode] = useState<'landing' | 'host' | 'join' | 'active'>('landing');
@@ -224,30 +225,54 @@ export default function App() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="mt-12 flex flex-col items-center justify-center gap-6 sm:flex-row"
+                className="mt-12 flex flex-col items-center justify-center gap-6"
               >
-                {showLogin ? (
-                  <Login onSuccess={() => setShowLogin(false)} />
-                ) : (
-                  <>
-                    <button
-                      onClick={() => setShowLogin(true)}
-                      className="group relative flex items-center gap-3 overflow-hidden rounded-2xl bg-slate-900 px-10 py-5 text-xl font-black text-white shadow-2xl transition-all hover:scale-105 hover:bg-slate-800 active:scale-95"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 opacity-0 transition-opacity group-hover:opacity-10" />
-                      <LogIn size={24} />
-                      {t.getStartedFree}
-                    </button>
-                    
-                    <button
-                      onClick={() => setActiveTab('playground')}
-                      className="flex items-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-10 py-5 text-xl font-bold text-slate-700 transition-all hover:border-indigo-300 hover:bg-indigo-50/30 active:scale-95"
-                    >
-                      <Play size={24} fill="currentColor" className="text-indigo-600" />
-                      {t.tryPlayground}
-                    </button>
-                  </>
+                {!showLogin && (
+                  <div className="flex items-center gap-2 rounded-2xl bg-slate-100 p-1 mb-4">
+                    {[
+                      { id: 'en', label: 'EN' },
+                      { id: 'uz', label: 'UZ' },
+                      { id: 'ru', label: 'RU' }
+                    ].map((lang) => (
+                      <button
+                        key={lang.id}
+                        onClick={() => setInterfaceLang(lang.id as any)}
+                        className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                          interfaceLang === lang.id
+                            ? 'bg-white text-indigo-600 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-900'
+                        }`}
+                      >
+                        {lang.label}
+                      </button>
+                    ))}
+                  </div>
                 )}
+
+                <div className="flex flex-col items-center justify-center gap-6 sm:flex-row w-full">
+                  {showLogin ? (
+                    <Login onSuccess={() => setShowLogin(false)} lang={interfaceLang} />
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setShowLogin(true)}
+                        className="group relative flex items-center gap-3 overflow-hidden rounded-2xl bg-slate-900 px-10 py-5 text-xl font-black text-white shadow-2xl transition-all hover:scale-105 hover:bg-slate-800 active:scale-95"
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 opacity-0 transition-opacity group-hover:opacity-10" />
+                        <LogIn size={24} />
+                        {t.getStartedFree}
+                      </button>
+                      
+                      <button
+                        onClick={() => setActiveTab('playground')}
+                        className="flex items-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-10 py-5 text-xl font-bold text-slate-700 transition-all hover:border-indigo-300 hover:bg-indigo-50/30 active:scale-95"
+                      >
+                        <Play size={24} fill="currentColor" className="text-indigo-600" />
+                        {t.tryPlayground}
+                      </button>
+                    </>
+                  )}
+                </div>
               </motion.div>
             </div>
 

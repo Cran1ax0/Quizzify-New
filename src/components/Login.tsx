@@ -3,13 +3,16 @@ import { motion, AnimatePresence } from 'motion/react';
 import { LogIn, Mail, Phone, Lock, User, ChevronRight, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
 import { signInWithGoogle, signInWithEmail, signUpWithEmail, auth } from '../lib/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
+import { translations } from '../lib/translations';
 
 interface LoginProps {
   onSuccess: () => void;
+  lang?: 'en' | 'uz' | 'ru';
 }
 
-export default function Login({ onSuccess }: LoginProps) {
+export default function Login({ onSuccess, lang = 'en' }: LoginProps) {
   const [method, setMethod] = useState<'options' | 'email-login' | 'email-signup' | 'phone'>('options');
+  const t = translations[lang] || translations.en;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -115,8 +118,8 @@ export default function Login({ onSuccess }: LoginProps) {
               className="space-y-6"
             >
               <div className="text-center">
-                <h2 className="text-3xl font-black text-slate-900">Welcome Back</h2>
-                <p className="mt-2 text-slate-500">Choose your preferred login method</p>
+                <h2 className="text-3xl font-black text-slate-900">{t.welcomeBack}</h2>
+                <p className="mt-2 text-slate-500">{t.chooseLoginMethod}</p>
               </div>
 
               <div className="space-y-3">
@@ -126,7 +129,7 @@ export default function Login({ onSuccess }: LoginProps) {
                   className="flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white py-4 font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-50"
                 >
                   <img src="https://www.google.com/favicon.ico" className="h-5 w-5" alt="Google" />
-                  Continue with Google
+                  {t.continueWithGoogle}
                 </button>
 
                 <button
@@ -134,7 +137,7 @@ export default function Login({ onSuccess }: LoginProps) {
                   className="flex w-full items-center justify-center gap-3 rounded-2xl bg-slate-900 py-4 font-bold text-white transition-all hover:bg-slate-800"
                 >
                   <Mail size={20} />
-                  Continue with Email
+                  {t.continueWithEmail}
                 </button>
 
                 <button
@@ -142,7 +145,7 @@ export default function Login({ onSuccess }: LoginProps) {
                   className="flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white py-4 font-bold text-slate-700 transition-all hover:bg-slate-50"
                 >
                   <Phone size={20} />
-                  Continue with Phone
+                  {t.continueWithPhone}
                 </button>
               </div>
 
@@ -151,7 +154,7 @@ export default function Login({ onSuccess }: LoginProps) {
                   onClick={() => setMethod('email-signup')}
                   className="text-sm font-bold text-indigo-600 hover:underline"
                 >
-                  Don't have an account? Sign up
+                  {t.noAccountSignUp}
                 </button>
               </div>
             </motion.div>
@@ -170,19 +173,19 @@ export default function Login({ onSuccess }: LoginProps) {
                 className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-900"
               >
                 <ArrowLeft size={16} />
-                Back
+                {t.back}
               </button>
 
               <div className="text-center">
                 <h2 className="text-3xl font-black text-slate-900">
-                  {method === 'email-login' ? 'Sign In' : 'Create Account'}
+                  {method === 'email-login' ? t.signIn : t.createAccount}
                 </h2>
               </div>
 
               <form onSubmit={method === 'email-login' ? handleEmailLogin : handleEmailSignup} className="space-y-4">
                 {method === 'email-signup' && (
                   <div className="space-y-1">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Full Name</label>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500">{t.fullName}</label>
                     <div className="relative">
                       <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                       <input
@@ -198,7 +201,7 @@ export default function Login({ onSuccess }: LoginProps) {
                 )}
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Email Address</label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">{t.emailAddress}</label>
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                     <input
@@ -213,7 +216,7 @@ export default function Login({ onSuccess }: LoginProps) {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Password</label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">{t.password}</label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                     <input
@@ -239,7 +242,7 @@ export default function Login({ onSuccess }: LoginProps) {
                   disabled={loading}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-4 font-bold text-white shadow-lg shadow-indigo-100 transition-all hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {loading ? 'Processing...' : method === 'email-login' ? 'Sign In' : 'Create Account'}
+                  {loading ? t.processing : (method === 'email-login' ? t.signIn : t.createAccount)}
                   <ChevronRight size={18} />
                 </button>
               </form>
@@ -259,20 +262,20 @@ export default function Login({ onSuccess }: LoginProps) {
                 className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-900"
               >
                 <ArrowLeft size={16} />
-                Back
+                {t.back}
               </button>
 
               <div className="text-center">
-                <h2 className="text-3xl font-black text-slate-900">Phone Login</h2>
+                <h2 className="text-3xl font-black text-slate-900">{t.phoneLogin}</h2>
                 <p className="mt-2 text-slate-500">
-                  {step === 'phone' ? 'Enter your phone number' : 'Enter the 6-digit code'}
+                  {step === 'phone' ? t.enterPhoneDesc : t.enterCodeDesc}
                 </p>
               </div>
 
               <form onSubmit={step === 'phone' ? handlePhoneSubmit : handleCodeSubmit} className="space-y-4">
                 {step === 'phone' ? (
                   <div className="space-y-1">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Phone Number</label>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500">{t.phoneNumber}</label>
                     <div className="relative">
                       <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                       <input
@@ -287,7 +290,7 @@ export default function Login({ onSuccess }: LoginProps) {
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Verification Code</label>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500">{t.verificationCode}</label>
                     <div className="relative">
                       <CheckCircle2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                       <input
@@ -315,7 +318,7 @@ export default function Login({ onSuccess }: LoginProps) {
                   disabled={loading}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-4 font-bold text-white shadow-lg shadow-indigo-100 transition-all hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {loading ? 'Processing...' : step === 'phone' ? 'Send Code' : 'Verify Code'}
+                  {loading ? t.processing : (step === 'phone' ? t.sendCode : t.verifyCode)}
                   <ChevronRight size={18} />
                 </button>
               </form>

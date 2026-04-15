@@ -1,9 +1,26 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Question, QuizConfig } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const getAI = () => {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.warn('GEMINI_API_KEY is not defined. AI features will be disabled.');
+      return null;
+    }
+    return new GoogleGenAI({ apiKey });
+  } catch (e) {
+    console.error('Failed to initialize GoogleGenAI:', e);
+    return null;
+  }
+};
+
+const ai = getAI();
 
 export const generateAll = async (config: QuizConfig): Promise<{ questions: Question[]; flashcards: { front: string; back: string }[] }> => {
+  if (!ai) {
+    throw new Error('Gemini API Key is missing. Please configure it in Settings.');
+  }
   const model = ai.models.generateContent({
     model: "gemini-3.1-pro-preview",
     contents: [
@@ -117,6 +134,9 @@ export const generateAll = async (config: QuizConfig): Promise<{ questions: Ques
 };
 
 export const analyzeImage = async (base64Image: string): Promise<string> => {
+  if (!ai) {
+    throw new Error('Gemini API Key is missing. Please configure it in Settings.');
+  }
   const model = ai.models.generateContent({
     model: "gemini-3.1-pro-preview",
     contents: [
