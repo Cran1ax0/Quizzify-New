@@ -35,6 +35,8 @@ export default function JoinSession({ onJoined }: JoinSessionProps) {
 
   const t = translations[userStats?.settings?.interfaceLanguage || 'en'] || translations.en;
 
+  const [sessionData, setSessionData] = useState<any>(null);
+
   const handleVerifyPin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pin.length !== 6) {
@@ -57,9 +59,10 @@ export default function JoinSession({ onJoined }: JoinSessionProps) {
       }
 
       const sid = activeSession.id;
-      const sessionData = activeSession.data();
+      const data = activeSession.data();
+      setSessionData(data);
       
-      const quizDoc = await getDoc(doc(db, 'quizzes', sessionData.quizId));
+      const quizDoc = await getDoc(doc(db, 'quizzes', data.quizId));
       const qCount = quizDoc.exists() ? (quizDoc.data().questions?.length || 0) : 0;
       
       setSessionId(sid);
@@ -85,7 +88,7 @@ export default function JoinSession({ onJoined }: JoinSessionProps) {
     setError(null);
 
     try {
-      const participantId = await joinSession(sessionId, nickname, auth.currentUser?.uid, questionCount);
+      const participantId = await joinSession(sessionId, nickname, auth.currentUser?.uid, questionCount, sessionData?.gameMode === 'cryptohack');
       onJoined(sessionId, participantId);
     } catch (err) {
       console.error('Join error:', err);

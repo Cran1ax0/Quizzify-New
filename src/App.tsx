@@ -24,6 +24,7 @@ export default function App() {
   const [user, loading] = useAuthState(auth);
   const [activeTab, setActiveTab] = useState<'create' | 'history' | 'playground' | 'ranking' | 'profile'>('create');
   const [currentQuiz, setCurrentQuiz] = useState<Quiz | null>(null);
+  const [isStudyMode, setIsStudyMode] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
@@ -182,12 +183,12 @@ export default function App() {
 
   if (!user && activeTab !== 'playground') {
     return (
-      <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
-        <div className="relative overflow-hidden bg-white">
-          {/* Animated Background Blobs */}
-          <div className="absolute -top-24 -left-24 h-96 w-96 animate-pulse rounded-full bg-indigo-200/30 blur-3xl" />
-          <div className="absolute top-1/2 left-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-100/20 blur-3xl" />
-          <div className="absolute -bottom-24 -right-24 h-96 w-96 animate-pulse rounded-full bg-fuchsia-200/30 blur-3xl" />
+      <div className="min-h-screen bg-[#FDFCF8] bg-uz-pattern font-sans text-slate-900 overflow-x-hidden">
+        <div className="relative overflow-hidden bg-white/50 backdrop-blur-sm">
+          {/* National Colors Background Blobs */}
+          <div className="absolute -top-24 -left-24 h-96 w-96 animate-pulse rounded-full bg-uz-blue/10 blur-3xl" />
+          <div className="absolute top-1/2 left-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-uz-green/5 blur-3xl" />
+          <div className="absolute -bottom-24 -right-24 h-96 w-96 animate-pulse rounded-full bg-uz-gold/10 blur-3xl" />
           
           <div className="relative mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
             <div className="mx-auto max-w-3xl text-center">
@@ -197,8 +198,8 @@ export default function App() {
                 className="mb-10 flex justify-center"
               >
                 <div className="relative">
-                  <div className="absolute inset-0 animate-ping rounded-3xl bg-indigo-400/20" />
-                  <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-2xl">
+                  <div className="absolute inset-0 animate-ping rounded-3xl bg-uz-blue/20" />
+                  <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-uz-blue via-uz-green to-uz-gold text-white shadow-2xl">
                     <BrainCircuit size={56} />
                   </div>
                 </div>
@@ -207,18 +208,18 @@ export default function App() {
               <motion.h1
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-6xl font-black tracking-tight text-slate-900 sm:text-8xl"
+                className="text-6xl font-black font-serif tracking-tight text-slate-900 sm:text-8xl"
               >
-                Quizzify<span className="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent">.ai</span>
+                Quizzify<span className="text-uz-blue">.ai</span>
               </motion.h1>
               
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="mt-8 text-2xl font-medium leading-relaxed text-slate-600"
+                className="mt-8 text-2xl font-serif font-medium italic leading-relaxed text-slate-700"
               >
-                <span className="font-black text-slate-900">{t.landingTaglineMain}</span> {t.landingTaglineSub}
+                {t.landingTaglineMain} {t.landingTaglineSub}
               </motion.p>
               
               <motion.div
@@ -251,23 +252,27 @@ export default function App() {
 
                 <div className="flex flex-col items-center justify-center gap-6 sm:flex-row w-full">
                   {showLogin ? (
-                    <Login onSuccess={() => setShowLogin(false)} lang={interfaceLang} />
+                    <div className="w-full max-w-md p-1 rounded-3xl bg-gradient-to-br from-uz-blue via-uz-green to-uz-gold shadow-2xl">
+                      <div className="bg-white rounded-[1.4rem] p-1">
+                        <Login onSuccess={() => setShowLogin(false)} lang={interfaceLang} />
+                      </div>
+                    </div>
                   ) : (
                     <>
                       <button
                         onClick={() => setShowLogin(true)}
-                        className="group relative flex items-center gap-3 overflow-hidden rounded-2xl bg-slate-900 px-10 py-5 text-xl font-black text-white shadow-2xl transition-all hover:scale-105 hover:bg-slate-800 active:scale-95"
+                        className="group relative flex items-center gap-3 overflow-hidden rounded-2xl bg-uz-blue px-10 py-5 text-xl font-black text-white shadow-2xl shadow-uz-blue/30 transition-all hover:scale-105 hover:bg-uz-blue/90 active:scale-95"
                       >
-                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 opacity-0 transition-opacity group-hover:opacity-10" />
+                        <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
                         <LogIn size={24} />
                         {t.getStartedFree}
                       </button>
                       
                       <button
                         onClick={() => setActiveTab('playground')}
-                        className="flex items-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-10 py-5 text-xl font-bold text-slate-700 transition-all hover:border-indigo-300 hover:bg-indigo-50/30 active:scale-95"
+                        className="flex items-center gap-3 rounded-2xl border-2 border-uz-gold bg-white px-10 py-5 text-xl font-bold text-slate-700 transition-all hover:bg-uz-gold/5 active:scale-95"
                       >
-                        <Play size={24} fill="currentColor" className="text-indigo-600" />
+                        <Play size={24} className="text-uz-gold fill-uz-gold" />
                         {t.tryPlayground}
                       </button>
                     </>
@@ -283,19 +288,19 @@ export default function App() {
                   icon: FileText, 
                   title: t.featureMultiModalTitle, 
                   desc: t.featureMultiModalDesc,
-                  color: "bg-indigo-50 text-indigo-600"
+                  color: "bg-uz-blue/10 text-uz-blue"
                 },
                 { 
                   icon: Search, 
                   title: t.featureSearchTitle, 
                   desc: t.featureSearchDesc,
-                  color: "bg-violet-50 text-violet-600"
+                  color: "bg-uz-green/10 text-uz-green"
                 },
                 { 
                   icon: Sparkles, 
                   title: t.featureAdaptiveTitle, 
                   desc: t.featureAdaptiveDesc,
-                  color: "bg-fuchsia-50 text-fuchsia-600"
+                  color: "bg-uz-gold/10 text-uz-gold"
                 }
               ].map((feature, idx) => (
                 <motion.div
@@ -303,13 +308,13 @@ export default function App() {
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 + idx * 0.1 }}
-                  className="group relative rounded-3xl border border-slate-100 bg-white p-10 shadow-sm transition-all hover:-translate-y-2 hover:border-indigo-200 hover:shadow-xl"
+                  className="group relative rounded-3xl border border-slate-100 bg-white p-10 shadow-sm transition-all hover:-translate-y-2 hover:border-uz-gold/30 hover:shadow-xl"
                 >
                   <div className={`mb-6 flex h-16 w-16 items-center justify-center rounded-2xl ${feature.color} transition-transform group-hover:scale-110 group-hover:rotate-3`}>
                     <feature.icon size={32} />
                   </div>
-                  <h3 className="text-2xl font-bold text-slate-900">{feature.title}</h3>
-                  <p className="mt-4 text-lg text-slate-500 leading-relaxed">{feature.desc}</p>
+                  <h3 className="text-2xl font-bold font-serif text-slate-900">{feature.title}</h3>
+                  <p className="mt-4 text-base text-slate-500 leading-relaxed font-medium">{feature.desc}</p>
                 </motion.div>
                 ))}
               </div>
@@ -330,7 +335,10 @@ export default function App() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
           >
-            <QuizView quiz={currentQuiz} onClose={() => setCurrentQuiz(null)} />
+            <QuizView quiz={currentQuiz} isStudyMode={isStudyMode} onClose={() => {
+              setCurrentQuiz(null);
+              setIsStudyMode(false);
+            }} />
           </motion.div>
         ) : editingQuiz || isCreatingManual ? (
           <motion.div
@@ -378,7 +386,13 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
           >
-            <QuizHistory onSelect={setCurrentQuiz} onEdit={setEditingQuiz} />
+            <QuizHistory 
+              onSelect={(quiz, study) => {
+                setCurrentQuiz(quiz);
+                setIsStudyMode(!!study);
+              }} 
+              onEdit={setEditingQuiz} 
+            />
           </motion.div>
         ) : activeTab === 'ranking' ? (
           <motion.div

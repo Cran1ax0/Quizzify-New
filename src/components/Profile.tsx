@@ -59,8 +59,8 @@ export default function Profile({ onLogout }: ProfileProps) {
             <h2 className="text-3xl font-black text-slate-900">{user?.displayName || t.learner}</h2>
             <p className="text-slate-500">{user?.email}</p>
             <div className="mt-2 flex items-center gap-2">
-              <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-600">{t.level} {stats?.level || 1}</span>
-              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-600">{stats?.totalPoints.toLocaleString()} {t.points}</span>
+              <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-600">{t.level} {stats?.levelV2 || 1}</span>
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-600">{(stats?.totalPointsV2 || 0).toLocaleString()} {t.points}</span>
             </div>
           </div>
         </div>
@@ -125,20 +125,20 @@ export default function Profile({ onLogout }: ProfileProps) {
         </div>
       </div>
 
-      {/* Quick Links */}
-      <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {[
-          { icon: HelpCircle, label: t.helpCenter },
-          { icon: Settings, label: t.account },
-          { icon: Bell, label: t.notifications },
-          { icon: ShieldCheck, label: t.privacy }
-        ].map((link, idx) => (
-          <button key={idx} className="flex flex-col items-center gap-2 rounded-2xl border border-slate-100 bg-white p-6 transition-all hover:border-indigo-200 hover:shadow-md">
-            <link.icon className="text-slate-400" size={24} />
-            <span className="text-xs font-bold text-slate-600">{link.label}</span>
-          </button>
-        ))}
+        {/* Quick Links */}
+        <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {[
+            { icon: HelpCircle, label: t.helpCenter },
+            { icon: Settings, label: t.account },
+            { icon: Bell, label: t.notifications },
+            { icon: ShieldCheck, label: t.privacy }
+          ].map((link, idx) => (
+            <button key={idx} className="flex flex-col items-center gap-2 rounded-2xl border border-slate-100 bg-white p-6 transition-all hover:border-indigo-200 hover:shadow-md">
+              <link.icon className="text-slate-400" size={24} />
+              <span className="text-xs font-bold text-slate-600">{link.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }

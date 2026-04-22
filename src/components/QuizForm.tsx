@@ -11,7 +11,7 @@ interface QuizFormProps {
   isGenerating: boolean;
 }
 
-const LEVELS: QuizLevel[] = ['IGCSE', 'A-Levels', 'SAT', 'University', 'General'];
+const LEVELS: QuizLevel[] = ['IGCSE', 'AS-Level', 'A-Levels', 'SAT', 'University', 'General'];
 const LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Chinese', 'Uzbek', 'Russian'];
 
 export default function QuizForm({ onGenerate, isGenerating }: QuizFormProps) {
@@ -40,6 +40,30 @@ export default function QuizForm({ onGenerate, isGenerating }: QuizFormProps) {
   const [documents, setDocuments] = useState<{ data: string; mimeType: string; name: string }[]>([]);
   const [type, setType] = useState<'quiz' | 'exam'>('quiz');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const blob = items[i].getAsFile();
+          if (!blob) continue;
+
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const data = reader.result as string;
+            setImages(prev => [...prev, data]);
+          };
+          reader.readAsDataURL(blob);
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -83,25 +107,25 @@ export default function QuizForm({ onGenerate, isGenerating }: QuizFormProps) {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <div className="mb-8 text-center">
+      <div className="mb-10 text-center">
         <motion.h2 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-4xl font-black tracking-tight text-slate-900"
+          className="text-4xl font-black font-serif tracking-tight text-slate-900"
         >
-          {t.createAiQuiz.split('AI Quiz')[0]}<span className="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent">AI Quiz</span>{t.createAiQuiz.split('AI Quiz')[1]}
+          {t.createAiQuiz.split('AI Quiz')[0]}<span className="text-uz-blue">AI Quiz</span>{t.createAiQuiz.split('AI Quiz')[1]}
         </motion.h2>
-        <p className="mt-3 text-lg text-slate-600">{t.transformStudy}</p>
+        <p className="mt-3 text-lg text-slate-600 font-serif italic">{t.transformStudy}</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-indigo-100/50 sm:p-10">
+      <form onSubmit={handleSubmit} className="space-y-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-uz-blue/5 sm:p-10">
         {/* Type Selection */}
         <div className="flex gap-4 p-1 rounded-2xl bg-slate-100">
           <button
             type="button"
             onClick={() => setType('quiz')}
             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${
-              type === 'quiz' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              type === 'quiz' ? 'bg-white text-uz-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             <Sparkles size={16} />
@@ -111,7 +135,7 @@ export default function QuizForm({ onGenerate, isGenerating }: QuizFormProps) {
             type="button"
             onClick={() => setType('exam')}
             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${
-              type === 'exam' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              type === 'exam' ? 'bg-white text-uz-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             <FileText size={16} />
@@ -121,8 +145,8 @@ export default function QuizForm({ onGenerate, isGenerating }: QuizFormProps) {
 
         <div className="grid gap-8 md:grid-cols-2">
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-100 text-indigo-600">
+            <label className="flex items-center gap-2 text-sm font-bold text-slate-700 uppercase tracking-wider">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-uz-blue/10 text-uz-blue">
                 <BookOpen size={14} />
               </div>
               {t.topic}
@@ -133,13 +157,13 @@ export default function QuizForm({ onGenerate, isGenerating }: QuizFormProps) {
               value={topic}
               onChange={e => setTopic(e.target.value)}
               placeholder={t.topicPlaceholder}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition-all focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition-all focus:border-uz-blue focus:bg-white focus:ring-4 focus:ring-uz-blue/10"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-violet-100 text-violet-600">
+            <label className="flex items-center gap-2 text-sm font-bold text-slate-700 uppercase tracking-wider">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-uz-green/10 text-uz-green">
                 <GraduationCap size={14} />
               </div>
               {t.academicLevel}
@@ -147,9 +171,10 @@ export default function QuizForm({ onGenerate, isGenerating }: QuizFormProps) {
             <select
               value={level}
               onChange={e => setLevel(e.target.value as QuizLevel)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition-all focus:border-violet-500 focus:bg-white focus:ring-4 focus:ring-violet-100"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition-all focus:border-uz-green focus:bg-white focus:ring-4 focus:ring-uz-green/10"
             >
               <option value="IGCSE">IGCSE</option>
+              <option value="AS-Level">{t.levelASLevel}</option>
               <option value="A-Levels">A-Levels</option>
               <option value="SAT">SAT</option>
               <option value="University">{t.levelUniversity}</option>
@@ -158,8 +183,8 @@ export default function QuizForm({ onGenerate, isGenerating }: QuizFormProps) {
           </div>
 
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-100 text-emerald-600">
+            <label className="flex items-center gap-2 text-sm font-bold text-slate-700 uppercase tracking-wider">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-uz-blue/10 text-uz-blue">
                 <Globe size={14} />
               </div>
               {t.language}
@@ -167,7 +192,7 @@ export default function QuizForm({ onGenerate, isGenerating }: QuizFormProps) {
             <select
               value={language}
               onChange={e => setLanguage(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition-all focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition-all focus:border-uz-blue focus:bg-white focus:ring-4 focus:ring-uz-blue/10"
             >
               <option value="English">{t.langEnglish}</option>
               <option value="Spanish">{t.langSpanish}</option>
@@ -180,8 +205,8 @@ export default function QuizForm({ onGenerate, isGenerating }: QuizFormProps) {
           </div>
 
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-100 text-amber-600">
+            <label className="flex items-center gap-2 text-sm font-bold text-slate-700 uppercase tracking-wider">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-uz-gold/10 text-uz-gold">
                 <Hash size={14} />
               </div>
               {t.numQuestions}
@@ -192,14 +217,14 @@ export default function QuizForm({ onGenerate, isGenerating }: QuizFormProps) {
               max="50"
               value={questionCount}
               onChange={e => setQuestionCount(Number(e.target.value))}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition-all focus:border-amber-500 focus:bg-white focus:ring-4 focus:ring-amber-100"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition-all focus:border-uz-gold focus:bg-white focus:ring-4 focus:ring-uz-gold/10"
             />
           </div>
         </div>
 
         <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-fuchsia-100 text-fuchsia-600">
+          <label className="flex items-center gap-2 text-sm font-bold text-slate-700 uppercase tracking-wider">
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-uz-blue/10 text-uz-blue">
               <Sparkles size={14} />
             </div>
             {t.additionalContext}
@@ -209,24 +234,24 @@ export default function QuizForm({ onGenerate, isGenerating }: QuizFormProps) {
             onChange={e => setAdditionalMaterials(e.target.value)}
             placeholder={t.additionalContext}
             rows={4}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition-all focus:border-fuchsia-500 focus:bg-white focus:ring-4 focus:ring-fuchsia-100"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition-all focus:border-uz-blue focus:bg-white focus:ring-4 focus:ring-uz-blue/10"
           />
         </div>
 
         <div className="space-y-4">
-          <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-100 text-indigo-600">
+          <label className="flex items-center gap-2 text-sm font-bold text-slate-700 uppercase tracking-wider">
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-uz-blue/10 text-uz-blue">
               <Upload size={14} />
             </div>
             {t.uploadMaterials}
           </label>
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="group relative flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 py-10 transition-all hover:border-indigo-400 hover:bg-indigo-50/50"
+            className="group relative flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 py-10 transition-all hover:border-uz-blue hover:bg-uz-blue/5"
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-fuchsia-500/5 opacity-0 transition-opacity group-hover:opacity-100" />
-            <Upload className="mb-3 text-slate-400 transition-transform group-hover:-translate-y-1 group-hover:text-indigo-600" size={32} />
-            <p className="text-base font-bold text-slate-700 group-hover:text-indigo-700">{t.clickToUpload}</p>
+            <div className="absolute inset-0 bg-gradient-to-br from-uz-blue/5 to-uz-green/5 opacity-0 transition-opacity group-hover:opacity-100" />
+            <Upload className="mb-3 text-slate-400 transition-transform group-hover:-translate-y-1 group-hover:text-uz-blue" size={32} />
+            <p className="text-base font-bold text-slate-700 group-hover:text-uz-blue">{t.clickToUpload}</p>
             <p className="mt-2 text-xs text-slate-500">{t.uploadFormats}</p>
             <p className="mt-1 text-[10px] text-slate-400 italic">{t.pptNote}</p>
             <input
@@ -279,7 +304,7 @@ export default function QuizForm({ onGenerate, isGenerating }: QuizFormProps) {
                         className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
                       >
                         <div className="flex items-center gap-3 overflow-hidden">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-uz-blue/10 text-uz-blue">
                             {doc.mimeType.includes('pdf') ? <FileText size={20} /> : <FileType size={20} />}
                           </div>
                           <p className="truncate text-xs font-bold text-slate-700">{doc.name}</p>
@@ -287,7 +312,7 @@ export default function QuizForm({ onGenerate, isGenerating }: QuizFormProps) {
                         <button
                           type="button"
                           onClick={() => removeDocument(idx)}
-                          className="ml-2 rounded-full p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                          className="ml-2 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-red-600 transition-colors"
                         >
                           <X size={14} />
                         </button>
@@ -303,7 +328,7 @@ export default function QuizForm({ onGenerate, isGenerating }: QuizFormProps) {
         <button
           type="submit"
           disabled={isGenerating || !topic}
-          className="group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 py-5 text-base font-black text-white shadow-xl shadow-indigo-200 transition-all hover:scale-[1.02] hover:shadow-indigo-300 disabled:cursor-not-allowed disabled:opacity-70 active:scale-95"
+          className="group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-uz-blue py-5 text-base font-black text-white shadow-xl shadow-uz-blue/20 transition-all hover:scale-[1.02] hover:bg-uz-blue/90 disabled:cursor-not-allowed disabled:opacity-70 active:scale-95"
         >
           <div className="absolute inset-0 bg-white/10 opacity-0 transition-opacity group-hover:opacity-100" />
           {isGenerating ? (

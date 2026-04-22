@@ -50,10 +50,12 @@ export const generateAll = async (config: QuizConfig): Promise<{ questions: Ques
             5. Exactly 20% of the questions MUST be of type "writing" (e.g., if there are 5 questions, 1 MUST be writing). The rest MUST be "multiple_choice".
             6. For "multiple_choice" questions:
                - Must have exactly 4 options and 1 correct answer.
+               - **PLAUSIBLE DISTRACTORS**: The incorrect options (distractors) MUST be plausible, related to the topic, and similar in length and complexity to the correct answer. Avoid making the correct answer stand out by its length or detail.
                - Randomize the position of the correct answer among the 4 options.
             6. For "writing" questions:
                - The answer should be a specific fact or a short word (1-3 words max).
                - The "options" array should be empty.
+               - **ACCEPTABLE ANSWERS**: Provide an array of alternate valid answers in the "acceptableAnswers" field. This is CRITICAL for languages with suffixes (like Uzbek: "Xurshid", "Xurshidning", "Xurshidni") or synonyms. Include all common linguistic variations or short-form/long-form synonyms.
             7. Provide a detailed explanation for the correct answer.
             8. Assign marks to each question (1-5 marks depending on complexity).
             
@@ -94,11 +96,12 @@ export const generateAll = async (config: QuizConfig): Promise<{ questions: Ques
                 type: { type: Type.STRING, enum: ["multiple_choice", "writing"] },
                 options: { type: Type.ARRAY, items: { type: Type.STRING } },
                 correctAnswer: { type: Type.STRING },
+                acceptableAnswers: { type: Type.ARRAY, items: { type: Type.STRING } },
                 explanation: { type: Type.STRING },
                 marks: { type: Type.NUMBER },
                 diagram: { type: Type.STRING }
               },
-              required: ["question", "type", "options", "correctAnswer", "explanation", "marks"]
+              required: ["question", "type", "options", "correctAnswer", "explanation", "marks", "acceptableAnswers"]
             }
           },
           flashcards: {

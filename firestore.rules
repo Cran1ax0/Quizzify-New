@@ -115,7 +115,8 @@ service cloud.firestore {
       match /participants/{participantId} {
         allow read: if true;
         allow create: if true; // Guests can join
-        allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['score', 'lastAnsweredIndex', 'currentQuestionIndex', 'powerUps', 'activePowerUp', 'cheatingAlerts', 'correctAnswersCount', 'isFinished']);
+        allow update: if (isAuthenticated() && get(/databases/$(database)/documents/sessions/$(sessionId)).data.hostId == request.auth.uid) || 
+                         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['score', 'lastAnsweredIndex', 'currentQuestionIndex', 'powerUps', 'activePowerUp', 'cheatingAlerts', 'correctAnswersCount', 'isFinished', 'crypto', 'isHacked', 'pendingTask', 'shuffledQuestionIndices', 'availablePasswords', 'password', 'hackerId', 'hackMessage']));
         allow delete: if isAuthenticated() && get(/databases/$(database)/documents/sessions/$(sessionId)).data.hostId == request.auth.uid;
       }
     }

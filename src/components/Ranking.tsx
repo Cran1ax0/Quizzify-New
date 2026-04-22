@@ -31,8 +31,8 @@ export default function Ranking() {
   useEffect(() => {
     const q = query(
       collection(db, 'userStats'),
-      orderBy('level', 'desc'),
-      orderBy('xp', 'desc'),
+      orderBy('levelV2', 'desc'),
+      orderBy('xpV2', 'desc'),
       limit(50)
     );
 
@@ -131,17 +131,17 @@ export default function Ranking() {
 
               <div className="col-span-2 text-center">
                 <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-3 py-1 text-xs font-black text-indigo-600">
-                  Lvl {stat.level || 1}
+                  Lvl {stat.levelV2 || 1}
                 </span>
               </div>
 
               <div className="col-span-2 text-center">
                 <div className="flex flex-col items-center">
-                  <span className="text-sm font-bold text-slate-700">{stat.xp || 0}</span>
+                  <span className="text-sm font-bold text-slate-700">{stat.xpV2 || 0}</span>
                   <div className="h-1 w-16 rounded-full bg-slate-100 overflow-hidden mt-1">
                     <div 
                       className="h-full bg-indigo-500" 
-                      style={{ width: `${((stat.xp || 0) / ((stat.level || 1) * 1000)) * 100}%` }} 
+                      style={{ width: `${((stat.xpV2 || 0) / ((stat.levelV2 || 1) * 500)) * 100}%` }} 
                     />
                   </div>
                 </div>
@@ -150,7 +150,7 @@ export default function Ranking() {
               <div className="col-span-2 text-right">
                 <div className="flex items-center justify-end gap-1 text-indigo-600">
                   <TrendingUp size={14} />
-                  <span className="font-black">{stat.totalPoints.toLocaleString()}</span>
+                  <span className="font-black">{stat.totalPointsV2?.toLocaleString() || 0}</span>
                 </div>
               </div>
             </motion.div>

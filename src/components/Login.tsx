@@ -118,15 +118,15 @@ export default function Login({ onSuccess, lang = 'en' }: LoginProps) {
               className="space-y-6"
             >
               <div className="text-center">
-                <h2 className="text-3xl font-black text-slate-900">{t.welcomeBack}</h2>
-                <p className="mt-2 text-slate-500">{t.chooseLoginMethod}</p>
+                <h2 className="text-3xl font-black font-serif text-slate-900">{t.welcomeBack}</h2>
+                <p className="mt-2 text-slate-500 font-serif italic">{t.chooseLoginMethod}</p>
               </div>
 
               <div className="space-y-3">
                 <button
                   onClick={handleGoogleLogin}
                   disabled={loading}
-                  className="flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white py-4 font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white py-4 font-bold text-slate-700 transition-all hover:bg-uz-blue/5 hover:border-uz-blue/30 disabled:opacity-50"
                 >
                   <img src="https://www.google.com/favicon.ico" className="h-5 w-5" alt="Google" />
                   {t.continueWithGoogle}
@@ -134,7 +134,7 @@ export default function Login({ onSuccess, lang = 'en' }: LoginProps) {
 
                 <button
                   onClick={() => setMethod('email-login')}
-                  className="flex w-full items-center justify-center gap-3 rounded-2xl bg-slate-900 py-4 font-bold text-white transition-all hover:bg-slate-800"
+                  className="flex w-full items-center justify-center gap-3 rounded-2xl bg-uz-blue py-4 font-bold text-white transition-all hover:bg-uz-blue/90"
                 >
                   <Mail size={20} />
                   {t.continueWithEmail}
@@ -142,7 +142,7 @@ export default function Login({ onSuccess, lang = 'en' }: LoginProps) {
 
                 <button
                   onClick={() => setMethod('phone')}
-                  className="flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white py-4 font-bold text-slate-700 transition-all hover:bg-slate-50"
+                  className="flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white py-4 font-bold text-slate-700 transition-all hover:bg-uz-blue/5 hover:border-uz-blue/30"
                 >
                   <Phone size={20} />
                   {t.continueWithPhone}
@@ -152,7 +152,7 @@ export default function Login({ onSuccess, lang = 'en' }: LoginProps) {
               <div className="text-center">
                 <button
                   onClick={() => setMethod('email-signup')}
-                  className="text-sm font-bold text-indigo-600 hover:underline"
+                  className="text-sm font-bold text-uz-blue hover:underline"
                 >
                   {t.noAccountSignUp}
                 </button>
@@ -177,7 +177,7 @@ export default function Login({ onSuccess, lang = 'en' }: LoginProps) {
               </button>
 
               <div className="text-center">
-                <h2 className="text-3xl font-black text-slate-900">
+                <h2 className="text-3xl font-black font-serif text-slate-900">
                   {method === 'email-login' ? t.signIn : t.createAccount}
                 </h2>
               </div>
@@ -193,7 +193,7 @@ export default function Login({ onSuccess, lang = 'en' }: LoginProps) {
                         required
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 outline-none focus:border-indigo-500 focus:bg-white"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 outline-none focus:border-uz-blue focus:bg-white focus:ring-4 focus:ring-uz-blue/10"
                         placeholder="John Doe"
                       />
                     </div>
@@ -209,7 +209,7 @@ export default function Login({ onSuccess, lang = 'en' }: LoginProps) {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 outline-none focus:border-indigo-500 focus:bg-white"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 outline-none focus:border-uz-blue focus:bg-white focus:ring-4 focus:ring-uz-blue/10"
                       placeholder="name@example.com"
                     />
                   </div>
@@ -224,7 +224,7 @@ export default function Login({ onSuccess, lang = 'en' }: LoginProps) {
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 outline-none focus:border-indigo-500 focus:bg-white"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 outline-none focus:border-uz-blue focus:bg-white focus:ring-4 focus:ring-uz-blue/10"
                       placeholder="••••••••"
                     />
                   </div>
@@ -240,7 +240,7 @@ export default function Login({ onSuccess, lang = 'en' }: LoginProps) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-4 font-bold text-white shadow-lg shadow-indigo-100 transition-all hover:bg-indigo-700 disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-uz-blue py-4 font-bold text-white shadow-lg shadow-uz-blue/20 transition-all hover:bg-uz-blue/90 disabled:opacity-50"
                 >
                   {loading ? t.processing : (method === 'email-login' ? t.signIn : t.createAccount)}
                   <ChevronRight size={18} />
@@ -316,7 +316,7 @@ export default function Login({ onSuccess, lang = 'en' }: LoginProps) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-4 font-bold text-white shadow-lg shadow-indigo-100 transition-all hover:bg-indigo-700 disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-uz-blue py-4 font-bold text-white shadow-lg shadow-uz-blue/20 transition-all hover:bg-uz-blue/90 disabled:opacity-50"
                 >
                   {loading ? t.processing : (step === 'phone' ? t.sendCode : t.verifyCode)}
                   <ChevronRight size={18} />

@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
 import { Quiz, UserStats } from '../types';
-import { Trash2, Play, Calendar, BookOpen, GraduationCap, Globe, Search, FileText, Pencil } from 'lucide-react';
+import { Trash2, Play, Calendar, BookOpen, GraduationCap, Globe, Search, FileText, Pencil, Eye, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { translations } from '../lib/translations';
+import { generateExamPDF } from '../lib/pdfGenerator';
 
 interface QuizHistoryProps {
-  onSelect: (quiz: Quiz) => void;
+  onSelect: (quiz: Quiz, isStudyMode?: boolean) => void;
   onEdit: (quiz: Quiz) => void;
 }
 
@@ -80,6 +81,20 @@ export default function QuizHistory({ onSelect, onEdit }: QuizHistoryProps) {
     return matchesSearch && matchesType;
   });
 
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+  const handleDownloadPaper = async (e: React.MouseEvent, quiz: Quiz) => {
+    e.stopPropagation();
+    try {
+      setIsGeneratingPDF(true);
+      await generateExamPDF(quiz);
+    } catch (error) {
+      console.error("Failed to generate PDF:", error);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -136,6 +151,7 @@ export default function QuizHistory({ onSelect, onEdit }: QuizHistoryProps) {
             {filteredQuizzes.map((quiz, idx) => {
               const levelColors: Record<string, string> = {
                 'IGCSE': 'bg-indigo-50 text-indigo-600 border-indigo-100',
+                'AS-Level': 'bg-cyan-50 text-cyan-600 border-cyan-100',
                 'A-Levels': 'bg-violet-50 text-violet-600 border-violet-100',
                 'SAT': 'bg-fuchsia-50 text-fuchsia-600 border-fuchsia-100',
                 'University': 'bg-emerald-50 text-emerald-600 border-emerald-100',
@@ -207,9 +223,29 @@ export default function QuizHistory({ onSelect, onEdit }: QuizHistoryProps) {
                   </div>
 
                   <div className="relative mt-8 flex items-center justify-between border-t border-slate-50 pt-5">
-                    <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-                      <Calendar size={14} />
-                      {new Date(quiz.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelect(quiz, true);
+                        }}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-all hover:bg-uz-blue/10 hover:text-uz-blue"
+                        title={t.view}
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button
+                        onClick={(e) => handleDownloadPaper(e, quiz)}
+                        disabled={isGeneratingPDF}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-all hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-50"
+                        title={t.download}
+                      >
+                        {isGeneratingPDF ? (
+                          <div className="h-3 w-3 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
+                        ) : (
+                          <Download size={16} />
+                        )}
+                      </button>
                     </div>
                     <div className="flex items-center gap-2 text-sm font-black text-indigo-600 transition-transform group-hover:translate-x-1">
                       {t.practice}

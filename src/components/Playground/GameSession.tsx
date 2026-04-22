@@ -6,6 +6,7 @@ import { Users, Play, Trophy, ChevronRight, Loader2, Clock, CheckCircle2, XCircl
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import { translations } from '../../lib/translations';
+import CryptoHackMode from './modes/CryptoHack';
 
 interface GameSessionProps {
   sessionId: string;
@@ -23,6 +24,7 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [writingAnswer, setWritingAnswer] = useState('');
   const [showExplanation, setShowExplanation] = useState(false);
+  const [showIncorrectFeedback, setShowIncorrectFeedback] = useState(false);
   const [startTime, setStartTime] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState(25);
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
@@ -138,6 +140,7 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
       setSelectedOption(null);
       setWritingAnswer('');
       setShowExplanation(false);
+      setShowIncorrectFeedback(false);
       
       // Time for one question for multiple choice in playground 45 secs, for written 1 min
       const qIndex = participant.shuffledQuestionIndices ? participant.shuffledQuestionIndices[participant.currentQuestionIndex] : participant.currentQuestionIndex;
@@ -159,9 +162,61 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
     }
   }, [session?.status, participant?.isFinished]);
 
+  // Timer logic for incorrect feedback
+  useEffect(() => {
+    if (showIncorrectFeedback) {
+      const timer = setTimeout(() => {
+        setShowIncorrectFeedback(false);
+        handleNextQuestion();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showIncorrectFeedback]);
+
   const handleStartGame = async () => {
-    if (!isHost) return;
-    await updateDoc(doc(db, 'sessions', sessionId), { status: 'playing' });
+    if (!isHost || !session || !quiz) return;
+    
+    try {
+      const updates: any = { status: 'playing' };
+      if (session.gameMode === 'cryptohack') {
+        const duration = session.duration || 8;
+        const end = new Date();
+        end.setMinutes(end.getMinutes() + duration);
+        updates.timerEnd = end.toISOString();
+
+        // Initialize all participants for CryptoHack
+        // This resets their scores, crypto, and sets up the large random question pool
+        const batchPromises = participants.map(p => {
+          const randomIndices = Array.from({ length: 500 }, () => Math.floor(Math.random() * quiz.questions.length));
+          
+          return updateDoc(doc(db, 'sessions', sessionId, 'participants', p.id), {
+            crypto: 0,
+            score: 0,
+            currentQuestionIndex: 0,
+            isHacked: false,
+            pendingTask: null,
+            shuffledQuestionIndices: randomIndices,
+            availablePasswords: generatePasswords()
+          });
+        });
+        await Promise.all(batchPromises);
+      }
+      
+      await updateDoc(doc(db, 'sessions', sessionId), updates);
+    } catch (err) {
+      console.error('Failed to start game:', err);
+      // Even if participant update fails (e.g. some left), try to start the game status
+      try {
+        await updateDoc(doc(db, 'sessions', sessionId), { status: 'playing' });
+      } catch (innerErr) {
+        console.error('Final fallback failed:', innerErr);
+      }
+    }
+  };
+
+  const generatePasswords = () => {
+    const words = ['CYBER', 'GHOST', 'MATRIX', 'VOXEL', 'PHANTOM', 'QUARTZ', 'NEXUS', 'AETHER', 'COBALT', 'SHADOW'];
+    return [...words].sort(() => Math.random() - 0.5).slice(0, 5);
   };
 
   const handleNextQuestion = async () => {
@@ -238,18 +293,45 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
     const qIndex = participant.shuffledQuestionIndices ? participant.shuffledQuestionIndices[participant.currentQuestionIndex] : participant.currentQuestionIndex;
     const currentQuestion = quiz.questions[qIndex];
     
-    const isCorrect = currentQuestion.type === 'writing'
-      ? option.trim().toLowerCase() === currentQuestion.correctAnswer.toLowerCase()
-      : option === currentQuestion.correctAnswer;
+    const checkIsCorrect = () => {
+      if (currentQuestion.type === 'writing') {
+        const norm = (s: string) => s.trim().toLowerCase();
+        const normalizedAnswer = norm(option);
+        const isPrimaryCorrect = normalizedAnswer === norm(currentQuestion.correctAnswer);
+        const isAcceptableCorrect = currentQuestion.acceptableAnswers?.some(ans => norm(ans) === normalizedAnswer);
+        return isPrimaryCorrect || isAcceptableCorrect;
+      }
+      return option === currentQuestion.correctAnswer;
+    };
+
+    const isCorrect = checkIsCorrect();
 
     setSelectedOption(option);
-    setShowExplanation(true);
+    
+    if (!isCorrect) {
+      setShowIncorrectFeedback(true);
+    } else {
+      if (session.showAnswers !== false) {
+        setShowExplanation(true);
+      } else {
+        // If answers are hidden, wait 1 second and then move to next question automatically
+        setTimeout(() => {
+          handleNextQuestion();
+        }, 1000);
+      }
+    }
 
     let points = 0;
-    if (isCorrect && !session.isTestMode) {
-      const timeTaken = (Date.now() - startTime) / 1000;
-      const initialTime = currentQuestion.type === 'writing' ? 60 : 45;
-      points = Math.max(500, 1000 - Math.floor(timeTaken * (1000 / initialTime)));
+    if (isCorrect) {
+      if (session.isTestMode) {
+        // Exams/Exams usually have fixed point value per question to not discourage thoughtful reading
+        points = currentQuestion.marks ? currentQuestion.marks * 50 : 100;
+      } else {
+        const timeTaken = (Date.now() - startTime) / 1000;
+        const initialTime = currentQuestion.type === 'writing' ? 60 : 45;
+        const basePoints = currentQuestion.type === 'writing' ? 200 : 100;
+        points = Math.max(Math.floor(basePoints / 2), basePoints - Math.floor(timeTaken * (basePoints / initialTime)));
+      }
     }
 
     const participantDoc = doc(db, 'sessions', sessionId, 'participants', participantId);
@@ -279,6 +361,20 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
           <p className="text-sm font-medium text-slate-500">{t.connectingPlayground}</p>
         </div>
       </div>
+    );
+  }
+
+  // Use specialized view for CryptoHack if applicable
+  if (session.gameMode === 'cryptohack' && session.status === 'playing') {
+    return (
+      <CryptoHackMode 
+        session={session} 
+        participants={participants} 
+        participant={participant} 
+        quiz={quiz} 
+        isHost={isHost}
+        onExit={onExit}
+      />
     );
   }
 
@@ -632,7 +728,7 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
             <div className="flex items-center justify-between mb-6">
               <div className="text-left">
                 <p className="text-xs font-black uppercase tracking-widest text-indigo-200">{t.currentLevel}</p>
-                <h3 className="text-3xl font-black">{t.level} {userStats.level}</h3>
+                <h3 className="text-3xl font-black">{t.level} {userStats.levelV2 || 1}</h3>
               </div>
               <div className="h-16 w-16 rounded-2xl bg-white/20 flex items-center justify-center">
                 <Star size={32} fill="currentColor" className="text-amber-300" />
@@ -642,12 +738,12 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
             <div className="space-y-2">
               <div className="flex justify-between text-sm font-bold">
                 <span>{t.xpProgress}</span>
-                <span>{userStats.xp} / {userStats.level * 1000} XP</span>
+                <span>{userStats.xpV2 || 0} / {(userStats.levelV2 || 1) * 500} XP</span>
               </div>
               <div className="h-3 w-full rounded-full bg-black/20 overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
-                  animate={{ width: `${(userStats.xp / (userStats.level * 1000)) * 100}%` }}
+                  animate={{ width: `${((userStats.xpV2 || 0) / ((userStats.levelV2 || 1) * 500)) * 100}%` }}
                   className="h-full bg-white shadow-[0_0_15px_rgba(255,255,255,0.5)]"
                 />
               </div>
@@ -655,7 +751,7 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
 
             <div className="mt-6 flex items-center gap-2 text-indigo-100 text-sm font-medium">
               <TrendingUp size={16} />
-              <span>{t.keepPlayingToReach} {userStats.level + 1}!</span>
+              <span>{t.keepPlayingToReach} {(userStats.levelV2 || 1) + 1}!</span>
             </div>
           </motion.div>
         )}
@@ -813,6 +909,17 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
                 </button>
               </div>
             )}
+
+            {currentQuestion.type === 'writing' && hasAnswered && session.showAnswers === false && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-8 rounded-2xl bg-white/10 px-8 py-4 border border-white/20"
+              >
+                <p className="text-xl font-bold text-white/60 uppercase tracking-widest">{t.answerSubmitted || 'Answer Submitted'}</p>
+                <p className="text-sm text-white/40 mt-1 italic">{t.movingToNext || 'Moving to next question...'}</p>
+              </motion.div>
+            )}
           </motion.div>
 
           {/* Options Grid */}
@@ -820,7 +927,8 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
             {(currentQuestion.type === 'multiple_choice' || currentQuestion.type === 'true_false') && currentQuestion.options.map((option, idx) => {
               const isSelected = selectedOption === option;
               const isCorrect = option === currentQuestion.correctAnswer;
-              const showResult = hasAnswered;
+              const showResult = hasAnswered && session.showAnswers !== false;
+              const isShowingHiddenSelection = hasAnswered && session.showAnswers === false && isSelected;
 
               const colors = [
                 { bg: 'bg-[#ef4444]', hover: 'hover:bg-[#dc2626]', border: 'border-[#b91c1c]', shadow: 'shadow-[0_6px_0_#b91c1c]' },
@@ -833,7 +941,13 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
               let buttonClass = "group relative w-full flex items-center gap-4 rounded-2xl p-6 text-left transition-all active:translate-y-1 active:shadow-none ";
               
               if (!showResult) {
-                buttonClass += `${color.bg} ${color.hover} ${color.shadow} text-white`;
+                if (isShowingHiddenSelection) {
+                  buttonClass += "bg-indigo-500 shadow-[0_6px_0_#4338ca] text-white opacity-100";
+                } else if (hasAnswered && session.showAnswers === false) {
+                  buttonClass += "bg-white/5 border border-white/10 text-white/20 grayscale pointer-events-none";
+                } else {
+                  buttonClass += `${color.bg} ${color.hover} ${color.shadow} text-white`;
+                }
               } else {
                 if (isCorrect) {
                   buttonClass += "bg-emerald-500 shadow-[0_6px_0_#047857] text-white scale-105 z-10";
@@ -868,7 +982,7 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
 
       {/* Result Bar & Explanation Modal */}
       <AnimatePresence>
-        {hasAnswered && (
+        {hasAnswered && session.showAnswers !== false && (
           <motion.div
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
@@ -944,7 +1058,71 @@ export default function GameSession({ sessionId, participantId, isHost, onExit }
           </motion.div>
         )}
       </AnimatePresence>
+      
+      <AnimatePresence>
+        {showIncorrectFeedback && currentQuestion && (
+          <IncorrectOverlay 
+            correctAnswer={currentQuestion.correctAnswer} 
+            t={t} 
+            explanation={currentQuestion.explanation}
+          />
+        )}
+      </AnimatePresence>
 
     </div>
+  );
+}
+
+function IncorrectOverlay({ correctAnswer, t, explanation }: { correctAnswer: string, t: any, explanation: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-red-600 text-white p-6 text-center"
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="max-w-2xl w-full"
+      >
+        <div className="mx-auto mb-8 flex h-24 w-24 items-center justify-center rounded-full bg-white/20 shadow-xl">
+          <XCircle size={64} className="text-white" />
+        </div>
+        
+        <h2 className="text-5xl font-black uppercase tracking-tight mb-6">{t.incorrectStatus || 'Incorrect'}</h2>
+        
+        <div className="mb-8 rounded-3xl bg-black/20 p-8 backdrop-blur-md border border-white/10">
+          <p className="text-sm font-bold uppercase tracking-widest text-white/60 mb-2">{t.correctAnswer || 'Correct Answer'}</p>
+          <p className="text-3xl font-black text-white">{correctAnswer}</p>
+        </div>
+
+        {explanation && (
+          <div className="mb-8 p-6 bg-white/5 rounded-2xl border border-white/5 text-left max-h-[30vh] overflow-y-auto custom-scrollbar">
+            <div className="flex items-center gap-2 mb-2 text-white/60">
+              <Info size={16} />
+              <span className="text-xs font-bold uppercase tracking-widest">{t.explanation}</span>
+            </div>
+            <div className="text-white/80 text-sm leading-relaxed prose prose-invert max-w-none">
+              <ReactMarkdown>{explanation}</ReactMarkdown>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col items-center gap-4">
+          <p className="text-white/60 font-medium text-sm animate-pulse">
+            {t.movingToNext || 'Moving to next question in 5s...'}
+          </p>
+          <div className="h-1.5 w-48 bg-white/20 rounded-full overflow-hidden">
+            <motion.div
+              initial={{ width: '100%' }}
+              animate={{ width: 0 }}
+              transition={{ duration: 5, ease: 'linear' }}
+              className="h-full bg-white"
+            />
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }

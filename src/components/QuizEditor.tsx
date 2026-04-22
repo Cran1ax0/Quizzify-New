@@ -38,6 +38,7 @@ export default function QuizEditor({ quiz, onSave, onCancel }: QuizEditorProps) 
       question: '',
       options: ['', ''],
       correctAnswer: '',
+      acceptableAnswers: [],
       explanation: '',
       type: 'multiple_choice',
       marks: 2
@@ -49,6 +50,7 @@ export default function QuizEditor({ quiz, onSave, onCancel }: QuizEditorProps) 
       question: '',
       options: ['', ''],
       correctAnswer: '',
+      acceptableAnswers: [],
       explanation: '',
       type: 'multiple_choice',
       marks: 2
@@ -112,22 +114,22 @@ export default function QuizEditor({ quiz, onSave, onCancel }: QuizEditorProps) 
     <div className="mx-auto max-w-4xl pb-20">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-black text-slate-900">
+          <h2 className="text-3xl font-black font-serif text-slate-900">
             {quiz ? t.editQuiz : t.createManualQuiz}
           </h2>
-          <p className="mt-1 text-slate-500">{t.craftPerfect}</p>
+          <p className="mt-1 text-slate-500 font-serif italic">{t.craftPerfect}</p>
         </div>
         <div className="flex gap-3">
           <button
             onClick={onCancel}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all"
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all font-serif"
           >
             <X size={18} />
             {t.cancel}
           </button>
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all"
+            className="flex items-center gap-2 rounded-xl bg-uz-blue px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-uz-blue/20 hover:bg-uz-blue/90 transition-all font-serif"
           >
             <Save size={18} />
             {t.saveQuiz}
@@ -140,47 +142,48 @@ export default function QuizEditor({ quiz, onSave, onCancel }: QuizEditorProps) 
         <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
           <div className="grid gap-6 sm:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-widest text-slate-400">{t.quizTopic}</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-uz-blue">{t.quizTopic}</label>
               <input
                 type="text"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder={t.topicPlaceholder}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold font-serif focus:border-uz-blue focus:ring-4 focus:ring-uz-blue/10 focus:bg-white transition-all shadow-inner"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-widest text-slate-400">{t.level}</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-uz-green">{t.level}</label>
               <select
                 value={level}
                 onChange={(e) => setLevel(e.target.value as QuizLevel)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold font-serif focus:border-uz-green focus:ring-4 focus:ring-uz-green/10 focus:bg-white transition-all shadow-inner"
               >
                 <option value="General">{t.levelGeneral}</option>
                 <option value="IGCSE">IGCSE</option>
+                <option value="AS-Level">{t.levelASLevel}</option>
                 <option value="A-Levels">A-Levels</option>
                 <option value="SAT">SAT</option>
                 <option value="University">{t.levelUniversity}</option>
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-widest text-slate-400">{t.language}</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-uz-blue">{t.language}</label>
               <input
                 type="text"
                 value={language}
                 onChange={(e) => setLanguage(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold font-serif focus:border-uz-blue focus:ring-4 focus:ring-uz-blue/10 focus:bg-white transition-all shadow-inner"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-widest text-slate-400">{t.type}</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-uz-gold">{t.type}</label>
               <div className="flex gap-2">
                 {(['quiz', 'exam'] as const).map((mode) => (
                   <button
                     key={mode}
                     onClick={() => setType(mode)}
-                    className={`flex-1 rounded-xl py-3 text-xs font-bold uppercase tracking-widest transition-all ${
-                      type === mode ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                    className={`flex-1 rounded-xl py-3 text-[10px] font-black uppercase tracking-widest transition-all ${
+                      type === mode ? 'bg-uz-blue text-white shadow-lg shadow-uz-blue/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                     }`}
                   >
                     {mode === 'quiz' ? t.quizMode : t.examMode}
@@ -197,7 +200,7 @@ export default function QuizEditor({ quiz, onSave, onCancel }: QuizEditorProps) 
             <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">{t.quizzes} ({questions.length})</h3>
             <button
               onClick={addQuestion}
-              className="flex items-center gap-2 rounded-xl bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-100 transition-all"
+              className="flex items-center gap-2 rounded-xl bg-uz-blue/10 px-4 py-2 text-xs font-bold text-uz-blue hover:bg-uz-blue/20 transition-all font-serif"
             >
               <Plus size={16} />
               {t.addQuestion}
@@ -212,11 +215,11 @@ export default function QuizEditor({ quiz, onSave, onCancel }: QuizEditorProps) 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="group relative rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:border-indigo-200"
+                className="group relative rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:border-uz-blue/30"
               >
                 <div className="mb-6 flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-sm font-black text-white">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-uz-blue text-sm font-black text-white shadow-lg shadow-uz-blue/20">
                       {idx + 1}
                     </span>
                     <div className="flex gap-2">
@@ -235,7 +238,7 @@ export default function QuizEditor({ quiz, onSave, onCancel }: QuizEditorProps) 
                             updateQuestion(idx, updates);
                           }}
                           className={`rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-all ${
-                            q.type === questionType ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+                            q.type === questionType ? 'bg-uz-blue/10 text-uz-blue' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
                           }`}
                         >
                           {questionType === 'multiple_choice' ? t.multipleChoice : questionType === 'true_false' ? t.trueFalse : t.writing}
@@ -245,7 +248,7 @@ export default function QuizEditor({ quiz, onSave, onCancel }: QuizEditorProps) 
                   </div>
                   <button
                     onClick={() => removeQuestion(idx)}
-                    className="rounded-full p-2 text-slate-300 hover:bg-red-50 hover:text-red-500 transition-all"
+                    className="rounded-full p-2 text-slate-300 hover:bg-uz-red/10 hover:text-uz-red transition-all"
                   >
                     <Trash2 size={18} />
                   </button>
@@ -259,7 +262,7 @@ export default function QuizEditor({ quiz, onSave, onCancel }: QuizEditorProps) 
                       onChange={(e) => updateQuestion(idx, { question: e.target.value })}
                       placeholder={t.enterQuestion}
                       rows={2}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all resize-none"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold font-serif focus:border-uz-blue focus:ring-4 focus:ring-uz-blue/10 focus:bg-white transition-all resize-none shadow-inner"
                     />
                   </div>
 
@@ -269,7 +272,7 @@ export default function QuizEditor({ quiz, onSave, onCancel }: QuizEditorProps) 
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t.options}</label>
                         <button
                           onClick={() => updateQuestion(idx, { options: [...q.options, ''] })}
-                          className="text-[10px] font-bold text-indigo-600 hover:underline"
+                          className="text-[10px] font-black text-uz-blue hover:underline uppercase tracking-widest"
                         >
                           {t.addOption}
                         </button>
@@ -280,10 +283,10 @@ export default function QuizEditor({ quiz, onSave, onCancel }: QuizEditorProps) 
                             <button
                               onClick={() => updateQuestion(idx, { correctAnswer: opt })}
                               className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
-                                q.correctAnswer === opt && opt !== '' ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-200 hover:border-indigo-300'
+                                q.correctAnswer === opt && opt !== '' ? 'border-uz-blue bg-uz-blue text-white shadow-md' : 'border-slate-200 hover:border-uz-blue/30'
                               }`}
                             >
-                              {String.fromCharCode(65 + optIdx)}
+                              <span className="text-[10px] font-black">{String.fromCharCode(65 + optIdx)}</span>
                             </button>
                             <input
                               type="text"
@@ -294,7 +297,7 @@ export default function QuizEditor({ quiz, onSave, onCancel }: QuizEditorProps) 
                                 updateQuestion(idx, { options: newOpts });
                               }}
                               placeholder={`${t.optionPlaceholder} ${optIdx + 1}`}
-                              className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium focus:border-indigo-500 transition-all"
+                              className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold font-serif focus:border-uz-blue focus:bg-white transition-all shadow-inner"
                             />
                             {q.options.length > 2 && (
                               <button
@@ -302,7 +305,7 @@ export default function QuizEditor({ quiz, onSave, onCancel }: QuizEditorProps) 
                                   const newOpts = q.options.filter((_, i) => i !== optIdx);
                                   updateQuestion(idx, { options: newOpts });
                                 }}
-                                className="text-slate-300 hover:text-red-500"
+                                className="text-slate-300 hover:text-uz-red transition-colors"
                               >
                                 <X size={14} />
                               </button>
@@ -319,8 +322,8 @@ export default function QuizEditor({ quiz, onSave, onCancel }: QuizEditorProps) 
                         <button
                           key={val}
                           onClick={() => updateQuestion(idx, { correctAnswer: val })}
-                          className={`flex-1 rounded-xl border-2 py-3 text-sm font-bold transition-all ${
-                            q.correctAnswer === val ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-100 bg-white text-slate-500 hover:border-indigo-200'
+                          className={`flex-1 rounded-xl border-2 py-3 text-sm font-black uppercase tracking-widest transition-all ${
+                            q.correctAnswer === val ? 'border-uz-blue bg-uz-blue/5 text-uz-blue shadow-inner' : 'border-slate-100 bg-white text-slate-400 hover:border-uz-blue/30'
                           }`}
                         >
                           {val}
@@ -330,15 +333,27 @@ export default function QuizEditor({ quiz, onSave, onCancel }: QuizEditorProps) 
                   )}
 
                   {q.type === 'writing' && (
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t.correctAnswer}</label>
-                      <input
-                        type="text"
-                        value={q.correctAnswer}
-                        onChange={(e) => updateQuestion(idx, { correctAnswer: e.target.value })}
-                        placeholder={t.enterCorrectAnswer}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium focus:border-indigo-500 transition-all"
-                      />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t.correctAnswer}</label>
+                        <input
+                          type="text"
+                          value={q.correctAnswer}
+                          onChange={(e) => updateQuestion(idx, { correctAnswer: e.target.value })}
+                          placeholder={t.enterCorrectAnswer}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold font-serif focus:border-uz-blue focus:bg-white transition-all shadow-inner"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t.acceptableAnswers} (comma separated)</label>
+                        <input
+                          type="text"
+                          value={q.acceptableAnswers?.join(', ') || ''}
+                          onChange={(e) => updateQuestion(idx, { acceptableAnswers: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                          placeholder="e.g. synonym 1, synonym 2"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold font-serif focus:border-uz-blue focus:bg-white transition-all shadow-inner"
+                        />
+                      </div>
                     </div>
                   )}
 
@@ -350,7 +365,7 @@ export default function QuizEditor({ quiz, onSave, onCancel }: QuizEditorProps) 
                         value={q.explanation}
                         onChange={(e) => updateQuestion(idx, { explanation: e.target.value })}
                         placeholder={t.whyCorrect}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-medium focus:border-indigo-500 transition-all"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold font-serif focus:border-uz-blue focus:bg-white transition-all shadow-inner"
                       />
                     </div>
                     <div className="space-y-2">
@@ -359,7 +374,7 @@ export default function QuizEditor({ quiz, onSave, onCancel }: QuizEditorProps) 
                         type="number"
                         value={q.marks}
                         onChange={(e) => updateQuestion(idx, { marks: parseInt(e.target.value) || 0 })}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-medium focus:border-indigo-500 transition-all"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold font-serif focus:border-uz-blue focus:bg-white transition-all shadow-inner"
                       />
                     </div>
                   </div>
@@ -370,7 +385,7 @@ export default function QuizEditor({ quiz, onSave, onCancel }: QuizEditorProps) 
 
           <button
             onClick={addQuestion}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 py-8 text-sm font-bold text-slate-400 hover:border-indigo-300 hover:bg-indigo-50/30 hover:text-indigo-600 transition-all"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 py-8 text-sm font-black uppercase tracking-widest text-slate-400 hover:border-uz-blue/30 hover:bg-uz-blue/5 hover:text-uz-blue transition-all"
           >
             <Plus size={20} />
             {t.addAnotherQuestion}

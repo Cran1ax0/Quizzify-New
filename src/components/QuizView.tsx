@@ -3,17 +3,18 @@ import { Quiz, Question, Flashcard, UserStats } from '../types';
 import { CheckCircle2, XCircle, ChevronRight, ChevronLeft, RotateCcw, Trophy, Info, Sparkles, BookOpen, Layers, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
-import { db, auth } from '../lib/firebase';
+import { db, auth, updateUserStats } from '../lib/firebase';
 import { collection, query, where, getDocs, doc, onSnapshot } from 'firebase/firestore';
 import { translations } from '../lib/translations';
 import { generateExamPDF } from '../lib/pdfGenerator';
 
 interface QuizViewProps {
   quiz: Quiz;
+  isStudyMode?: boolean;
   onClose: () => void;
 }
 
-export default function QuizView({ quiz, onClose }: QuizViewProps) {
+export default function QuizView({ quiz, isStudyMode = false, onClose }: QuizViewProps) {
   const isExam = quiz.type === 'exam';
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const user = auth.currentUser;
@@ -72,20 +73,26 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
   const currentQuestion = quiz.questions[currentQuestionIdx];
 
   const handleOptionSelect = (option: string) => {
-    if (showExplanation && !isExam) return;
+    if (showExplanation && !isExam && !isStudyMode) return;
     
     const newAnswers = [...answers];
     newAnswers[currentQuestionIdx] = option;
     setAnswers(newAnswers);
     setSelectedOption(option);
 
-    if (!isExam) {
+    if (!isExam && !isStudyMode) {
       setShowExplanation(true);
-      const isCorrect = currentQuestion.type === 'writing' 
-        ? option.trim().toLowerCase() === currentQuestion.correctAnswer.toLowerCase()
-        : option === currentQuestion.correctAnswer;
+      const checkIsCorrect = () => {
+        if (currentQuestion.type === 'writing') {
+          const norm = (s: string) => s.trim().toLowerCase();
+          const normalizedUser = norm(option);
+          return normalizedUser === norm(currentQuestion.correctAnswer) || 
+                 currentQuestion.acceptableAnswers?.some(ans => norm(ans) === normalizedUser);
+        }
+        return option === currentQuestion.correctAnswer;
+      };
 
-      if (isCorrect) {
+      if (checkIsCorrect()) {
         setScore(prev => prev + 1);
       }
     }
@@ -96,14 +103,23 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
     quiz.questions.forEach((q, idx) => {
       const ans = answers[idx];
       if (ans) {
+        const norm = (s: string) => s.trim().toLowerCase();
+        const normalizedUser = norm(ans);
         const isCorrect = q.type === 'writing'
-          ? ans.trim().toLowerCase() === q.correctAnswer.toLowerCase()
+          ? (normalizedUser === norm(q.correctAnswer) || q.acceptableAnswers?.some(a => norm(a) === normalizedUser))
           : ans === q.correctAnswer;
         if (isCorrect) finalScore++;
       }
     });
     setScore(finalScore);
     setIsFinished(true);
+    
+    // Award XP/Points for solo exam
+    if (auth.currentUser) {
+      // For exam mode, we can award points at the end
+      const totalPoints = finalScore * 50; // 50 points per correct answer in exam
+      updateUserStats(auth.currentUser.uid, totalPoints).catch(console.error);
+    }
   };
 
   const nextQuestion = () => {
@@ -118,6 +134,11 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
         finishExam();
       } else {
         setIsFinished(true);
+        // Award XP/Points for solo quiz completion
+        if (auth.currentUser) {
+          const totalPoints = score * 30; // 30 points per correct answer in solo quiz
+          updateUserStats(auth.currentUser.uid, totalPoints).catch(console.error);
+        }
       }
     }
   };
@@ -180,28 +201,28 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
         className="mx-auto max-w-2xl rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl sm:p-12"
       >
         <div className="mb-6 flex justify-center">
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-uz-blue/10 text-uz-blue">
             <Trophy size={48} />
           </div>
         </div>
-        <h2 className="text-3xl font-bold text-slate-900">Quiz Completed!</h2>
-        <p className="mt-2 text-slate-600">Great job on finishing the {quiz.topic} assessment.</p>
+        <h2 className="text-3xl font-black font-serif text-slate-900">Quiz Completed!</h2>
+        <p className="mt-2 text-slate-600 font-serif italic">Great job on finishing the {quiz.topic} assessment.</p>
         
         <div className="my-8 grid grid-cols-2 gap-4">
-          <div className="rounded-2xl bg-slate-50 p-6">
-            <p className="text-sm font-medium text-slate-500 uppercase tracking-wider">Score</p>
-            <p className="mt-1 text-4xl font-bold text-indigo-600">{score} / {quiz.questions.length}</p>
+          <div className="rounded-2xl bg-[#FDFCF8] p-6 border border-uz-gold/20">
+            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Score</p>
+            <p className="mt-1 text-4xl font-black font-serif text-uz-blue">{score} / {quiz.questions.length}</p>
           </div>
-          <div className="rounded-2xl bg-slate-50 p-6">
-            <p className="text-sm font-medium text-slate-500 uppercase tracking-wider">Accuracy</p>
-            <p className="mt-1 text-4xl font-bold text-indigo-600">{percentage}%</p>
+          <div className="rounded-2xl bg-[#FDFCF8] p-6 border border-uz-gold/20">
+            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Accuracy</p>
+            <p className="mt-1 text-4xl font-black font-serif text-uz-blue">{percentage}%</p>
           </div>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
           <button
             onClick={restartQuiz}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-uz-blue py-3.5 text-sm font-bold text-white shadow-lg shadow-uz-blue/20 hover:bg-uz-blue/90 transition-all font-serif"
           >
             <RotateCcw size={18} />
             {t.tryAgain}
@@ -233,8 +254,10 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
             <h3 className="mb-6 text-xl font-bold text-slate-900">{t.examReview}</h3>
             <div className="space-y-4">
               {quiz.questions.map((q, idx) => {
+                const norm = (s: string) => s.trim().toLowerCase();
+                const userAns = answers[idx] ? norm(answers[idx]!) : '';
                 const isCorrect = q.type === 'writing'
-                  ? answers[idx]?.trim().toLowerCase() === q.correctAnswer.toLowerCase()
+                  ? (userAns === norm(q.correctAnswer) || q.acceptableAnswers?.some(a => norm(a) === userAns))
                   : answers[idx] === q.correctAnswer;
                 return (
                   <div key={idx} className={`rounded-2xl border p-4 ${isCorrect ? 'border-emerald-100 bg-emerald-50/30' : 'border-red-100 bg-red-50/30'}`}>
@@ -284,7 +307,7 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
             <button
               onClick={() => setViewMode('quiz')}
               className={`flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-bold transition-all ${
-                viewMode === 'quiz' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                viewMode === 'quiz' ? 'bg-white text-uz-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               <BookOpen size={16} />
@@ -293,7 +316,7 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
             <button
               onClick={() => setViewMode('flashcards')}
               className={`flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-bold transition-all ${
-                viewMode === 'flashcards' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                viewMode === 'flashcards' ? 'bg-white text-uz-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               <Layers size={16} />
@@ -304,12 +327,27 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
 
         <div className="flex items-center gap-4">
           {isExam && (
+            <button
+              onClick={handleDownloadPaper}
+              disabled={isGeneratingPDF}
+              className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-700 hover:bg-emerald-100 transition-all disabled:opacity-50"
+            >
+              {isGeneratingPDF ? (
+                <div className="h-3 w-3 animate-spin rounded-full border-2 border-emerald-700 border-t-transparent" />
+              ) : (
+                <FileText size={14} />
+              )}
+              {t.download}
+            </button>
+          )}
+
+          {isExam && (
             <div className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold ${timeLeft < 60 ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-600'}`}>
               <RotateCcw size={14} />
               {formatTime(timeLeft)}
             </div>
           )}
-          <span className="text-xs font-bold uppercase tracking-widest text-indigo-600">{quiz.level}</span>
+          <span className="text-xs font-bold uppercase tracking-widest text-uz-blue">{quiz.level}</span>
         </div>
       </div>
 
@@ -319,21 +357,22 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${((currentQuestionIdx + 1) / quiz.questions.length) * 100}%` }}
-              className={`h-full ${isExam ? 'bg-red-500' : 'bg-indigo-600'}`}
+              className={`h-full ${isExam ? 'bg-uz-red' : 'bg-uz-blue'}`}
             />
           </div>
 
-            <div className="mb-4 flex items-center justify-between text-sm font-medium text-slate-500">
+            <div className="mb-4 flex items-center justify-between text-sm font-bold text-slate-400 uppercase tracking-tighter">
               <div className="flex items-center gap-4">
                 <span>{t.question} {currentQuestionIdx + 1} {t.of} {quiz.questions.length}</span>
                 {currentQuestion.marks && (
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  <span className="rounded-full bg-uz-blue/10 px-2 py-0.5 text-[10px] font-bold text-uz-blue uppercase tracking-wider">
                     {currentQuestion.marks} {currentQuestion.marks === 1 ? t.mark : t.marksLabel}
                   </span>
                 )}
               </div>
               {!isExam && <span>{t.score}: {score}</span>}
-              {isExam && <span className="font-bold text-red-600 uppercase tracking-tighter">{t.examMode}</span>}
+              {isExam && <span className="font-bold text-uz-red uppercase tracking-tighter">{t.examMode}</span>}
+              {isStudyMode && <span className="font-bold text-uz-blue uppercase tracking-tighter">{t.studyMode}</span>}
             </div>
 
           <AnimatePresence mode="wait">
@@ -345,7 +384,7 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
               transition={{ duration: 0.3 }}
               className={`rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 ${isExam ? 'border-red-100' : ''}`}
             >
-              <h3 className="text-xl font-bold text-slate-900 leading-relaxed">
+              <h3 className="text-xl font-bold font-serif text-slate-900 leading-relaxed italic">
                 {currentQuestion.question}
               </h3>
 
@@ -368,15 +407,15 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
                     let buttonClass = "w-full flex items-center justify-between rounded-xl border-2 p-4 text-left transition-all ";
                     if (!showResult) {
                       if (isExam && isSelected) {
-                        buttonClass += "border-red-500 bg-red-50 text-red-900";
+                        buttonClass += "border-uz-red bg-red-50 text-red-900";
                       } else {
-                        buttonClass += "border-slate-100 bg-slate-50 hover:border-indigo-200 hover:bg-indigo-50/50";
+                        buttonClass += "border-slate-100 bg-slate-50 hover:border-uz-blue/30 hover:bg-uz-blue/5";
                       }
                     } else {
                       if (isCorrect) {
                         buttonClass += "border-emerald-500 bg-emerald-50 text-emerald-900";
                       } else if (isSelected) {
-                        buttonClass += "border-red-500 bg-red-50 text-red-900";
+                        buttonClass += "border-uz-red bg-red-50 text-red-900";
                       } else {
                         buttonClass += "border-slate-100 bg-slate-50 opacity-50";
                       }
@@ -389,10 +428,10 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
                         onClick={() => handleOptionSelect(option)}
                         className={buttonClass}
                       >
-                        <span className="text-sm font-medium pr-4">{option}</span>
+                        <span className="text-sm font-bold pr-4 font-serif italic">{option}</span>
                         {showResult && isCorrect && <CheckCircle2 className="text-emerald-500 shrink-0" size={20} />}
-                        {showResult && isSelected && !isCorrect && <XCircle className="text-red-500 shrink-0" size={20} />}
-                        {isExam && isSelected && <CheckCircle2 className="text-red-500 shrink-0" size={20} />}
+                        {showResult && isSelected && !isCorrect && <XCircle className="text-uz-red shrink-0" size={20} />}
+                        {isExam && isSelected && <CheckCircle2 className="text-uz-blue shrink-0" size={20} />}
                       </button>
                     );
                   })
@@ -404,7 +443,7 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
                       onChange={(e) => setWritingAnswer(e.target.value)}
                       disabled={showExplanation && !isExam}
                       placeholder={t.typeAnswerPlaceholder}
-                      className="w-full rounded-xl border-2 border-slate-100 bg-slate-50 p-4 text-sm font-medium focus:border-indigo-500 focus:bg-white focus:outline-none disabled:opacity-50"
+                      className="w-full rounded-xl border-2 border-slate-100 bg-slate-50 p-4 text-sm font-bold font-serif focus:border-uz-blue focus:bg-white focus:outline-none disabled:opacity-50"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && writingAnswer.trim() && (!showExplanation || isExam)) {
                           handleOptionSelect(writingAnswer.trim());
@@ -415,26 +454,34 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
                       <button
                         onClick={() => handleOptionSelect(writingAnswer.trim())}
                         disabled={!writingAnswer.trim()}
-                        className="w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700 disabled:opacity-50"
+                        className="w-full rounded-xl bg-uz-blue py-3 text-sm font-bold text-white shadow-lg shadow-uz-blue/20 hover:bg-uz-blue/90 disabled:opacity-50 font-serif"
                       >
                         {t.submitAnswer}
                       </button>
                     )}
                     {showExplanation && !isExam && (
                       <div className={`rounded-xl border-2 p-4 ${
-                        writingAnswer.trim().toLowerCase() === currentQuestion.correctAnswer.toLowerCase()
+                        (() => {
+                          const norm = (s: string) => s.trim().toLowerCase();
+                          const userAns = writingAnswer.trim();
+                          return userAns && (norm(userAns) === norm(currentQuestion.correctAnswer) || currentQuestion.acceptableAnswers?.some(a => norm(a) === norm(userAns)));
+                        })()
                           ? 'border-emerald-500 bg-emerald-50 text-emerald-900'
-                          : 'border-red-500 bg-red-50 text-red-900'
+                          : 'border-uz-red bg-red-50 text-red-900'
                       }`}>
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-bold">{t.yourAnswer}: {writingAnswer}</span>
-                          {writingAnswer.trim().toLowerCase() === currentQuestion.correctAnswer.toLowerCase() ? (
+                          <span className="text-sm font-bold font-serif">{t.yourAnswer}: {writingAnswer}</span>
+                          {(() => {
+                            const norm = (s: string) => s.trim().toLowerCase();
+                            const userAns = writingAnswer.trim();
+                            return userAns && (norm(userAns) === norm(currentQuestion.correctAnswer) || currentQuestion.acceptableAnswers?.some(a => norm(a) === norm(userAns)));
+                          })() ? (
                             <CheckCircle2 className="text-emerald-500" size={20} />
                           ) : (
-                            <XCircle className="text-red-500" size={20} />
+                            <XCircle className="text-uz-red" size={20} />
                           )}
                         </div>
-                        <p className="mt-1 text-xs font-medium">{t.correctAnswer}: {currentQuestion.correctAnswer}</p>
+                        <p className="mt-1 text-xs font-bold font-serif text-emerald-700">{t.correctAnswer}: {currentQuestion.correctAnswer}</p>
                       </div>
                     )}
                   </div>
@@ -446,15 +493,15 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
-                    className="mt-8 rounded-xl bg-indigo-50/50 p-6 border border-indigo-100"
+                    className="mt-8 rounded-xl bg-uz-blue/5 p-6 border border-uz-blue/10"
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="mt-1 rounded-full bg-indigo-100 p-1 text-indigo-600">
+                    <div className="flex items-start gap-4">
+                      <div className="mt-1 rounded-full bg-uz-blue/10 p-1 text-uz-blue">
                         <Info size={16} />
                       </div>
                       <div>
-                        <h4 className="text-sm font-bold text-indigo-900 uppercase tracking-wider">{t.explanation}</h4>
-                        <div className="mt-2 text-sm leading-relaxed text-indigo-800 prose prose-indigo max-w-none">
+                        <h4 className="text-xs font-black text-uz-blue uppercase tracking-widest">{t.explanation}</h4>
+                        <div className="mt-2 text-sm leading-relaxed text-slate-700 prose prose-slate italic font-serif max-w-none">
                           <ReactMarkdown>{currentQuestion.explanation}</ReactMarkdown>
                         </div>
                       </div>
@@ -467,19 +514,30 @@ export default function QuizView({ quiz, onClose }: QuizViewProps) {
                 <button
                   onClick={prevQuestion}
                   disabled={currentQuestionIdx === 0}
-                  className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-30"
+                  className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold text-slate-400 transition-colors hover:bg-slate-100 disabled:opacity-30"
                 >
                   <ChevronLeft size={18} />
                   {t.previous}
                 </button>
-                <button
-                  onClick={nextQuestion}
-                  disabled={!isExam && !showExplanation}
-                  className={`flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-bold text-white shadow-md transition-all disabled:opacity-50 ${isExam ? 'bg-red-600 hover:bg-red-700 shadow-red-100' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100'}`}
-                >
-                  {currentQuestionIdx === quiz.questions.length - 1 ? (isExam ? t.submitExam : t.finishQuiz) : t.next}
-                  <ChevronRight size={18} />
-                </button>
+                <div className="flex items-center gap-3">
+                  {isStudyMode && !showExplanation && (
+                    <button
+                      onClick={() => setShowExplanation(true)}
+                      className="flex items-center gap-2 rounded-lg bg-uz-blue/10 px-4 py-2 text-sm font-bold text-uz-blue hover:bg-uz-blue/20"
+                    >
+                      <Sparkles size={16} />
+                      {t.view}
+                    </button>
+                  )}
+                  <button
+                    onClick={nextQuestion}
+                    disabled={!isExam && !showExplanation && !isStudyMode}
+                    className={`flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-bold text-white shadow-md transition-all disabled:opacity-50 ${isExam ? 'bg-uz-red hover:bg-uz-red/90 shadow-red-100' : 'bg-uz-blue hover:bg-uz-blue/90 shadow-uz-blue/20'}`}
+                  >
+                    {currentQuestionIdx === quiz.questions.length - 1 ? (isExam ? t.submitExam : t.finishQuiz) : t.next}
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
               </div>
             </motion.div>
           </AnimatePresence>

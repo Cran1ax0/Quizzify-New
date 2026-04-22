@@ -90,9 +90,9 @@ export const getOrCreateUserStats = async (uid: string, displayName?: string | n
       uid,
       displayName: displayName || '',
       photoURL: photoURL || '',
-      totalPoints: 0,
-      xp: 0,
-      level: 1,
+      totalPointsV2: 0,
+      xpV2: 0,
+      levelV2: 1,
       badges: [],
       streak: 0,
       settings: {
@@ -117,24 +117,49 @@ export const updateUserSettings = async (uid: string, settings: Partial<UserStat
 
 export const updateUserStats = async (uid: string, points: number, wrongAnswer?: UserStats['wrongAnswerBank'][0]) => {
   const statsDoc = doc(db, 'userStats', uid);
-  const updates: any = {
-    totalPoints: increment(points),
-    streak: increment(points > 0 ? 1 : -1)
-  };
-  if (wrongAnswer) {
-    updates.wrongAnswerBank = arrayUnion(wrongAnswer);
-  }
   
   try {
+    const stats = await getOrCreateUserStats(uid);
+    
+    // Calculate new XP and Level
+    let newXp = (stats.xpV2 || 0) + points; // XP = Points for solo play
+    let newLevel = stats.levelV2 || 1;
+
+    // Award XP based on points earned
+    while (newXp >= getXpForLevel(newLevel)) {
+      newXp -= getXpForLevel(newLevel);
+      newLevel++;
+    }
+
+    const updates: any = {
+      totalPointsV2: increment(points),
+      xpV2: newXp,
+      levelV2: newLevel,
+      streak: increment(points > 0 ? 1 : 0) // Only increment streak on correct answer
+    };
+
+    if (wrongAnswer) {
+      // If we provided a wrong answer, update the streak to 0 or decrement?
+      // User said "streak", let's just use increment(1) for correct, and reset for wrong
+      updates.streak = 0;
+      updates.wrongAnswerBank = arrayUnion(wrongAnswer);
+    }
+    
     await updateDoc(statsDoc, updates);
   } catch (error) {
-    // If document doesn't exist, create it
-    await getOrCreateUserStats(uid);
-    await updateDoc(statsDoc, updates);
+    console.error('Stats update failed:', error);
   }
 };
 
-export const createSession = async (hostId: string, quizId: string, mode: 'host-paced' | 'student-paced', isTestMode: boolean = false): Promise<string> => {
+export const createSession = async (
+  hostId: string, 
+  quizId: string, 
+  mode: 'host-paced' | 'student-paced', 
+  isTestMode: boolean = false, 
+  showAnswers: boolean = true,
+  gameMode: 'classic' | 'cryptohack' = 'classic',
+  duration: number = 8
+): Promise<string> => {
   const pin = Math.floor(100000 + Math.random() * 900000).toString();
   const sessionData: Omit<Session, 'id'> = {
     pin,
@@ -143,14 +168,17 @@ export const createSession = async (hostId: string, quizId: string, mode: 'host-
     status: 'lobby',
     currentQuestionIndex: 0,
     mode,
+    gameMode,
+    duration,
     isTestMode,
+    showAnswers,
     createdAt: new Date().toISOString()
   };
   const docRef = await addDoc(collection(db, 'sessions'), sessionData);
   return docRef.id;
 };
 
-export const joinSession = async (sessionId: string, nickname: string, uid?: string, questionCount: number = 0): Promise<string> => {
+export const joinSession = async (sessionId: string, nickname: string, uid?: string, questionCount: number = 0, isCryptoHack: boolean = false): Promise<string> => {
   // Create a shuffled array of indices [0, 1, 2, ..., questionCount - 1]
   const shuffledIndices = Array.from({ length: questionCount }, (_, i) => i);
   for (let i = shuffledIndices.length - 1; i > 0; i--) {
@@ -168,11 +196,26 @@ export const joinSession = async (sessionId: string, nickname: string, uid?: str
     shuffledQuestionIndices: shuffledIndices,
     joinedAt: new Date().toISOString()
   };
+
+  if (isCryptoHack) {
+    participantData.crypto = 0;
+    // Generate passwords
+    const passwordOptions = [
+      'X7kP9qZ!', 'Admin123', 'Secret_77', 'CyberPunk2077', 'HackerMan',
+      'Dragon_99', 'GhostInShell', 'Matrix_Neo', 'Terminator', 'RoboCop',
+      'HackThePlanet', 'ZeroCool', 'AcidBurn', 'CerealKiller', 'LordNikon',
+      'PhantomPhreak', 'Joey_11', 'ThePlague', 'AgentSmith', 'Trinity_22'
+    ];
+    // Pick 5 random
+    const shuffledPasswords = [...passwordOptions].sort(() => Math.random() - 0.5);
+    participantData.availablePasswords = shuffledPasswords.slice(0, 5);
+  }
+
   const docRef = await addDoc(collection(db, 'sessions', sessionId, 'participants'), participantData);
   return docRef.id;
 };
 
-export const getXpForLevel = (level: number) => level * 1000;
+export const getXpForLevel = (level: number) => level * 500; // Reduced from 1000 for faster progress feel
 
 export const awardSessionXp = async (sessionId: string) => {
   try {
@@ -203,7 +246,7 @@ export const awardSessionXp = async (sessionId: string) => {
     // Base XP from score
     const totalScore = participants.reduce((sum, p) => sum + p.score, 0);
     const avgScore = totalScore / participants.length;
-    const scoreXp = Math.floor(avgScore / 10); 
+    const scoreXp = Math.floor(avgScore / 5); // Increased from /10
 
     const xpToAward = accuracyXp + scoreXp;
 
@@ -216,8 +259,8 @@ export const awardSessionXp = async (sessionId: string) => {
       const stats = await getOrCreateUserStats(p.uid);
       
       const statsDoc = doc(db, 'userStats', p.uid);
-      let newXp = (stats.xp || 0) + xpToAward;
-      let newLevel = stats.level || 1;
+      let newXp = (stats.xpV2 || 0) + xpToAward;
+      let newLevel = stats.levelV2 || 1;
 
       while (newXp >= getXpForLevel(newLevel)) {
         newXp -= getXpForLevel(newLevel);
@@ -225,9 +268,8 @@ export const awardSessionXp = async (sessionId: string) => {
       }
 
       await updateDoc(statsDoc, {
-        xp: newXp,
-        level: newLevel,
-        totalPoints: increment(p.score)
+        xpV2: newXp,
+        levelV2: newLevel
       });
     });
 
